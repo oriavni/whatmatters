@@ -1,0 +1,155 @@
+/**
+ * POST /webhooks/postmark — Postmark inbound email webhook.
+ *
+ * Routing logic:
+ *   • To matches {inbound_slug}@{inbound_domain}
+ *       → new newsletter/email → store raw item → fire email/inbound
+ *   • To matches reply+{digest_id}@{reply_domain}
+ *       → digest reply → fire email/reply.parse
+ *
+ * Security: Postmark inbound webhooks do not provide HMAC signatures.
+ * We verify a shared secret passed as a Bearer token in the Authorization
+ * header (configured in Postmark: Settings → Inbound → Webhook → Add header).
+ * The secret is POSTMARK_WEBHOOK_SECRET from env.
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { inngest } from "@/lib/inngest/client";
+import { config } from "@/lib/config";
+
+// ── Postmark inbound payload shape (relevant fields only) ─────────────────────
+interface PostmarkInboundPayload {
+  MessageID: string;
+  From: string;
+  FromFull?: { Email: string; Name: string };
+  To: string;
+  Subject?: string;
+  TextBody?: string;
+  HtmlBody?: string;
+  Date?: string;
+  OriginalRecipient?: string;
+}
+
+const REPLY_PATTERN = /^reply\+([0-9a-f-]{36})@/i;
+
+export async function POST(request: NextRequest) {
+  // ── 1. Verify shared secret ────────────────────────────────────────────────
+  const authHeader = request.headers.get("authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  if (!token || token !== config.postmark.webhookSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── 2. Parse payload ───────────────────────────────────────────────────────
+  let payload: PostmarkInboundPayload;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const toAddress = (payload.OriginalRecipient ?? payload.To ?? "").toLowerCase();
+
+  // ── 3. Route: digest reply? ────────────────────────────────────────────────
+  const replyMatch = REPLY_PATTERN.exec(toAddress);
+  if (replyMatch) {
+    const digestId = replyMatch[1];
+    await inngest.send({
+      name: "email/reply.parse",
+      data: {
+        digest_id: digestId,
+        from_address: payload.From,
+        raw_text: payload.TextBody ?? "",
+        message_id: payload.MessageID,
+      },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 4. Route: new inbound email ────────────────────────────────────────────
+  // Resolve user from inbound slug (local part of the To address)
+  const localPart = toAddress.split("@")[0];
+  const supabase = createServiceClient();
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("id")
+    .eq("inbound_slug", localPart)
+    .maybeSingle();
+
+  if (!userRow) {
+    // Unknown recipient — acknowledge to Postmark, silently drop
+    console.warn("[postmark/inbound] unknown inbound_slug:", localPart);
+    return NextResponse.json({ ok: true });
+  }
+
+  const userId = userRow.id;
+  const senderEmail = payload.FromFull?.Email ?? payload.From ?? "";
+  const senderName = payload.FromFull?.Name ?? "";
+  const receivedAt = payload.Date
+    ? new Date(payload.Date).toISOString()
+    : new Date().toISOString();
+
+  // ── 5. Insert raw_item row ─────────────────────────────────────────────────
+  const { data: rawItem, error: insertError } = await supabase
+    .from("raw_items")
+    .insert({
+      user_id: userId,
+      source_type: "newsletter",
+      subject: payload.Subject ?? null,
+      sender_name: senderName || null,
+      sender_email: senderEmail || null,
+      received_at: receivedAt,
+      body_text: payload.TextBody ?? null,
+      is_processed: false,
+      metadata: { postmark_message_id: payload.MessageID },
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !rawItem) {
+    console.error(
+      "[postmark/inbound] failed to insert raw_item:",
+      insertError?.message
+    );
+    // Return 200 so Postmark does not retry — the error is logged above
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 6. Store raw HTML in Storage (if present) ──────────────────────────────
+  if (payload.HtmlBody) {
+    const storagePath = `${userId}/${rawItem.id}.html`;
+    const { error: storageError } = await supabase.storage
+      .from("raw-emails")
+      .upload(storagePath, Buffer.from(payload.HtmlBody, "utf-8"), {
+        contentType: "text/html",
+        upsert: false,
+      });
+
+    if (storageError) {
+      console.warn(
+        "[postmark/inbound] storage upload failed:",
+        storageError.message
+      );
+    } else {
+      await supabase
+        .from("raw_items")
+        .update({ raw_html_path: storagePath })
+        .eq("id", rawItem.id);
+    }
+  }
+
+  // ── 7. Fire Inngest event ──────────────────────────────────────────────────
+  await inngest.send({
+    name: "email/inbound",
+    data: {
+      raw_item_id: rawItem.id,
+      user_id: userId,
+      sender_email: senderEmail,
+      sender_name: senderName,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
+}
