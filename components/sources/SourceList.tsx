@@ -5,10 +5,11 @@ import { Rss, Mail, AlertCircle } from "lucide-react";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Source {
   id: string;
@@ -50,9 +51,19 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-sm text-muted-foreground">
-        Loading sources…
-      </div>
+      <Card>
+        <CardContent className="space-y-3 py-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="size-4 shrink-0 rounded" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-2/5" />
+                <Skeleton className="h-3 w-3/5" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     );
   }
 
@@ -73,9 +84,9 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardDescription>
           {sources.length} {sources.length === 1 ? "source" : "sources"}
-        </CardTitle>
+        </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <ul className="divide-y">

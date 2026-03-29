@@ -140,7 +140,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
               >
                 {phase.kind === "detecting" ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                     Detecting…
                   </>
                 ) : (
@@ -154,7 +154,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
           {(phase.kind === "detected_rss" || phase.kind === "adding") && (
             <div className="space-y-4">
               <div className="flex items-start gap-3 rounded-md border p-3">
-                <Rss className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
+                <Rss className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">RSS feed found</p>
                   <p className="mt-0.5 text-sm text-muted-foreground truncate">
@@ -183,7 +183,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                 >
                   {phase.kind === "adding" ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" />
                       Adding…
                     </>
                   ) : (
@@ -198,7 +198,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
           {phase.kind === "detected_newsletter" && (
             <div className="space-y-4">
               <div className="flex items-start gap-3 rounded-md border p-3">
-                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                <Mail className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium">This is a newsletter</p>
                   <p className="text-sm text-muted-foreground">{phase.message}</p>
@@ -241,7 +241,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
           {phase.kind === "added" && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 rounded-md border p-3">
-                <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
+                <CheckCircle className="size-4 shrink-0 text-muted-foreground" />
                 <p className="text-sm">
                   <span className="font-medium">{phase.source_name}</span> added.
                   We&apos;re fetching it now — use <strong>Read now</strong> in a moment to generate your Brief.

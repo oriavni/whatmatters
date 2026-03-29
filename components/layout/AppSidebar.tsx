@@ -50,7 +50,7 @@ export function AppSidebar({ userEmail }: AppSidebarProps) {
         >
           {/* Small dot mark visible in icon-only state */}
           <span className="size-5 shrink-0 rounded-md bg-foreground flex items-center justify-center">
-            <span className="text-[10px] font-bold text-background leading-none">W</span>
+            <span className="text-[0.625rem] font-bold text-background leading-none">W</span>
           </span>
           {!isCollapsed && <span>WhatMatters</span>}
         </Link>

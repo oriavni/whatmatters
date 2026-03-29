@@ -4,7 +4,7 @@ import {
   CardTitle,
   CardDescription,
   CardAction,
-  CardFooter,
+  CardContent,
 } from "@/components/ui/card";
 import { SourceAttribution } from "./SourceAttribution";
 import { StoryBlockActions } from "./StoryBlockActions";
@@ -36,9 +36,9 @@ export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
       </CardHeader>
 
       {cluster.sources.length > 0 && (
-        <CardFooter>
+        <CardContent className="pt-0">
           <SourceAttribution sources={cluster.sources} />
-        </CardFooter>
+        </CardContent>
       )}
     </Card>
   );

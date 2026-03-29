@@ -111,7 +111,7 @@ export function SignupForm() {
 
   return (
     <Card className="w-full max-w-sm">
-      <CardHeader className="space-y-1">
+      <CardHeader>
         <CardTitle className="text-xl">Create an account</CardTitle>
         <CardDescription>Your private Brief in minutes.</CardDescription>
       </CardHeader>
