@@ -4,7 +4,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── Extensions ────────────────────────────────────────────────────────────────
-create extension if not exists "uuid-ossp";
+-- gen_random_uuid() is built into Postgres 13+ (pgcrypto not required)
 create extension if not exists "pg_trgm";   -- for future full-text / fuzzy search
 
 -- ── Enums ─────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ create policy "users: update own row"
 
 -- ── subscriptions ─────────────────────────────────────────────────────────────
 create table public.subscriptions (
-  id                    uuid primary key default uuid_generate_v4(),
+  id                    uuid primary key default gen_random_uuid(),
   user_id               uuid not null references public.users(id) on delete cascade,
   stripe_customer_id    text unique,
   stripe_subscription_id text unique,
@@ -66,7 +66,7 @@ create policy "subscriptions: select own"
 
 -- ── sources ───────────────────────────────────────────────────────────────────
 create table public.sources (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null references public.users(id) on delete cascade,
   type          source_type not null,
   name          text not null,
@@ -91,7 +91,7 @@ create index sources_user_id_idx on public.sources(user_id);
 -- ── raw_items ─────────────────────────────────────────────────────────────────
 -- One row per ingested email / RSS entry (before clustering/digest)
 create table public.raw_items (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references public.users(id) on delete cascade,
   source_id       uuid references public.sources(id) on delete set null,
   source_type     source_type not null,
@@ -143,7 +143,7 @@ create policy "user_preferences: all own"
 -- ── topic_interests ───────────────────────────────────────────────────────────
 -- Explicit interest weights per topic label, learned + user-editable
 create table public.topic_interests (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references public.users(id) on delete cascade,
   topic       text not null,
   weight      real not null default 1.0,   -- 0.0 = muted, 1.0 = normal, 2.0+ = boosted
@@ -163,7 +163,7 @@ create index topic_interests_user_id_idx on public.topic_interests(user_id);
 
 -- ── digests ───────────────────────────────────────────────────────────────────
 create table public.digests (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references public.users(id) on delete cascade,
   status          digest_status not null default 'pending',
   period_start    timestamptz not null,
@@ -191,7 +191,7 @@ create index digests_status_idx on public.digests(status) where status in ('pend
 -- ── topic_clusters ────────────────────────────────────────────────────────────
 -- LLM-generated clusters that belong to a digest
 create table public.topic_clusters (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   digest_id   uuid not null references public.digests(id) on delete cascade,
   user_id     uuid not null references public.users(id) on delete cascade,
   topic       text not null,
@@ -211,7 +211,7 @@ create index topic_clusters_digest_id_idx on public.topic_clusters(digest_id);
 
 -- ── feedback_events ───────────────────────────────────────────────────────────
 create table public.feedback_events (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references public.users(id) on delete cascade,
   digest_id   uuid references public.digests(id) on delete set null,
   cluster_id  uuid references public.topic_clusters(id) on delete set null,
@@ -232,7 +232,7 @@ create index feedback_events_user_id_idx on public.feedback_events(user_id);
 -- ── reply_actions ─────────────────────────────────────────────────────────────
 -- Actions parsed from user email replies to digests
 create table public.reply_actions (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references public.users(id) on delete cascade,
   digest_id   uuid references public.digests(id) on delete set null,
   cluster_id  uuid references public.topic_clusters(id) on delete set null,
@@ -254,7 +254,7 @@ create index reply_actions_user_id_idx on public.reply_actions(user_id);
 
 -- ── saved_items ───────────────────────────────────────────────────────────────
 create table public.saved_items (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references public.users(id) on delete cascade,
   raw_item_id uuid references public.raw_items(id) on delete set null,
   cluster_id  uuid references public.topic_clusters(id) on delete set null,
@@ -276,7 +276,7 @@ create index saved_items_user_id_idx on public.saved_items(user_id);
 -- ── job_logs ──────────────────────────────────────────────────────────────────
 -- Audit log for background Inngest jobs
 create table public.job_logs (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid references public.users(id) on delete set null,
   job_name    text not null,
   status      job_status not null default 'queued',

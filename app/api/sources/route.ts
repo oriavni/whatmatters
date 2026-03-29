@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { detectFeed } from "@/lib/rss/detect";
 import { config } from "@/lib/config";
+import { inngest } from "@/lib/inngest/client";
 
 /** GET /api/sources — list the user's sources */
 export async function GET() {
@@ -128,6 +129,19 @@ export async function POST(request: NextRequest) {
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  // Trigger an immediate one-time fetch so items are available right away.
+  // Fire-and-forget — if this fails the source row is already saved and the
+  // scheduled cron will pick it up on its next run.
+  try {
+    await inngest.send({
+      name: "source/added",
+      data: { source_id: source!.id, user_id: user.id },
+    });
+  } catch {
+    // Non-fatal: log server-side but do not fail the response
+    console.warn(`[sources] could not enqueue immediate fetch for ${source!.id}`);
   }
 
   return NextResponse.json({ source }, { status: 201 });

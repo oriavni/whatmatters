@@ -1,7 +1,11 @@
-"use client";
-
-import { useState } from "react";
-import { Separator } from "@/components/ui/separator";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+  CardFooter,
+} from "@/components/ui/card";
 import { SourceAttribution } from "./SourceAttribution";
 import { StoryBlockActions } from "./StoryBlockActions";
 import type { BriefCluster } from "./types";
@@ -12,44 +16,30 @@ interface StoryBlockProps {
 }
 
 export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
-  const [actionsVisible, setActionsVisible] = useState(false);
-
   return (
-    <article
-      className="group py-8 first:pt-0 last:[&>hr]:hidden"
-      onMouseEnter={() => setActionsVisible(true)}
-      onMouseLeave={() => setActionsVisible(false)}
-      onFocus={() => setActionsVisible(true)}
-      onBlur={() => setActionsVisible(false)}
-    >
-      <h2
-        className={
-          isLead
-            ? "text-[1.0625rem] font-semibold leading-snug tracking-tight mb-3"
-            : "text-base font-semibold leading-snug tracking-tight mb-3"
-        }
-      >
-        {cluster.topic}
-      </h2>
+    <Card>
+      <CardHeader>
+        <CardTitle className={isLead ? "text-lg" : undefined}>
+          {cluster.topic}
+        </CardTitle>
+        {cluster.summary && (
+          <CardDescription className="text-sm leading-relaxed">
+            {cluster.summary}
+          </CardDescription>
+        )}
+        <CardAction>
+          <StoryBlockActions
+            clusterId={cluster.id}
+            sourceUrl={cluster.sourceUrl}
+          />
+        </CardAction>
+      </CardHeader>
 
-      {cluster.summary && (
-        <p className="text-sm leading-[1.75] text-foreground/80 mb-4">
-          {cluster.summary}
-        </p>
+      {cluster.sources.length > 0 && (
+        <CardFooter>
+          <SourceAttribution sources={cluster.sources} />
+        </CardFooter>
       )}
-
-      {/* Attribution and action bar on the same row */}
-      <div className="flex items-center justify-between gap-4 min-h-[28px]">
-        <SourceAttribution sources={cluster.sources} />
-        <StoryBlockActions
-          clusterId={cluster.id}
-          sourceUrl={cluster.sourceUrl}
-          visible={actionsVisible}
-          className="shrink-0"
-        />
-      </div>
-
-      <Separator className="mt-8" />
-    </article>
+    </Card>
   );
 }

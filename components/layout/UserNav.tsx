@@ -4,6 +4,7 @@ import { signout } from "@/app/actions/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -53,13 +54,13 @@ export function UserNav({ email, collapsed }: UserNavProps) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent side="top" align="start" className="w-52">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col gap-0.5">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
             <span className="text-xs font-medium text-foreground truncate">
               {email}
             </span>
-          </div>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
 
         <DropdownMenuItem>

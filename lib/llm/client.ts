@@ -26,13 +26,24 @@ export interface LLMResponse {
   };
 }
 
-// Lazily initialised so the module can be imported without throwing at build time
-let _client: OpenAI | null = null;
+// Use globalThis to persist the client across Turbopack HMR module
+// re-evaluations in dev. Without this, each hot-reload cycle resets the
+// module-level variable to null, and the next getClient() call races against
+// the env-var injection window.
+declare global {
+  // eslint-disable-next-line no-var
+  var __openaiClient: OpenAI | undefined;
+}
+
 function getClient(): OpenAI {
-  if (!_client) {
-    _client = new OpenAI({ apiKey: config.llm.openaiApiKey });
+  if (!global.__openaiClient) {
+    const key = process.env.OPENAI_API_KEY;
+    console.log(
+      `[llm/client] init — OPENAI_API_KEY present: ${!!key} (len: ${key?.length ?? 0})`
+    );
+    global.__openaiClient = new OpenAI({ apiKey: config.llm.openaiApiKey });
   }
-  return _client;
+  return global.__openaiClient;
 }
 
 /**

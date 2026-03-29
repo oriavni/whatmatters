@@ -148,12 +148,12 @@ function confirmationText(
         text: [
           "I wasn't sure what you meant. Here are the things you can reply with:",
           "",
-          "  • "more [topic]" — get more coverage of a topic",
-          "  • "ignore [topic]" — see less of a topic",
-          "  • "link to [topic]" — get the original article link",
-          "  • "mute [source name]" — stop seeing content from a source",
-          "  • "read now" — generate a fresh digest right now",
-          "  • "daily" / "weekly on monday" — change your delivery schedule",
+          "  • \"more [topic]\" — get more coverage of a topic",
+          "  • \"ignore [topic]\" — see less of a topic",
+          "  • \"link to [topic]\" — get the original article link",
+          "  • \"mute [source name]\" — stop seeing content from a source",
+          "  • \"read now\" — generate a fresh digest right now",
+          "  • \"daily\" / \"weekly on monday\" — change your delivery schedule",
         ].join("\n"),
       };
   }

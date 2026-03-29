@@ -244,7 +244,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                 <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
                 <p className="text-sm">
                   <span className="font-medium">{phase.source_name}</span> added.
-                  It will appear in your next Brief.
+                  We&apos;re fetching it now — use <strong>Read now</strong> in a moment to generate your Brief.
                 </p>
               </div>
               <Button className="w-full" onClick={() => handleOpenChange(false)}>

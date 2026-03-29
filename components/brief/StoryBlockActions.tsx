@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -12,24 +11,14 @@ import { ThumbsUp, Bookmark, Pin, BellOff, ExternalLink } from "lucide-react";
 interface StoryBlockActionsProps {
   clusterId: string;
   sourceUrl: string | null;
-  visible: boolean;
-  className?: string;
 }
 
 export function StoryBlockActions({
   clusterId: _clusterId,
   sourceUrl,
-  visible,
-  className,
 }: StoryBlockActionsProps) {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-0.5 transition-opacity duration-150",
-        visible ? "opacity-100" : "opacity-0 pointer-events-none",
-        className
-      )}
-    >
+    <div className="flex items-center gap-0.5">
       <ActionIcon icon={ThumbsUp} label="Like" />
       <ActionIcon icon={Bookmark} label="Save" />
       <ActionIcon icon={Pin} label="Pin" disabled />
@@ -73,7 +62,7 @@ function ActionIcon({
             variant="ghost"
             size="icon-sm"
             disabled={disabled}
-            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            className="text-muted-foreground hover:text-foreground"
           />
         }
       >

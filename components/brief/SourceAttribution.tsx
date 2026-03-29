@@ -10,7 +10,7 @@ export function SourceAttribution({ sources, className }: SourceAttributionProps
   if (sources.length === 0) return null;
 
   return (
-    <p className={cn("text-xs text-muted-foreground/70", className)}>
+    <p className={cn("text-xs text-muted-foreground", className)}>
       {sources.map((s) => s.name).join(" · ")}
     </p>
   );

@@ -58,7 +58,7 @@ export function SignupForm() {
 
     // If email confirmation is disabled in Supabase, a session is returned immediately
     if (data.session) {
-      router.push("/onboarding");
+      router.push("/app/brief");
       router.refresh();
       return;
     }
@@ -76,7 +76,7 @@ export function SignupForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding`,
+        redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
 

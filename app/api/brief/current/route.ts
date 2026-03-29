@@ -13,20 +13,34 @@ export async function GET() {
 
   const service = createServiceClient();
 
-  const { data: digest, error: digestError } = await service
+  // Check the latest digest regardless of status so we can surface
+  // "generating" and "failed" states to the polling client.
+  const { data: latestAny, error: latestError } = await service
     .from("digests")
     .select("id, subject, period_end, status, sent_at")
     .eq("user_id", user.id)
-    .in("status", ["ready", "sent"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (digestError) {
-    return NextResponse.json({ error: digestError.message }, { status: 500 });
+  if (latestError) {
+    return NextResponse.json({ error: latestError.message }, { status: 500 });
   }
+
+  const generationStatus: "idle" | "generating" | "failed" =
+    latestAny?.status === "pending" || latestAny?.status === "generating"
+      ? "generating"
+      : latestAny?.status === "failed"
+      ? "failed"
+      : "idle";
+
+  const digest =
+    latestAny?.status === "ready" || latestAny?.status === "sent"
+      ? latestAny
+      : null;
+
   if (!digest) {
-    return NextResponse.json({ digest: null });
+    return NextResponse.json({ digest: null, generationStatus });
   }
 
   // Load clusters
@@ -130,5 +144,6 @@ export async function GET() {
       sentAt: digest.sent_at,
       clusters,
     },
+    generationStatus,
   });
 }

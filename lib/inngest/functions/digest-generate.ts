@@ -36,6 +36,20 @@ export const digestGenerate = inngest.createFunction(
       limit: 1,
       key: "event.data.user_id",
     },
+    // If all retries are exhausted, mark any stuck digest row as failed so the
+    // user can click "Read now" again without hitting the 409 guard.
+    onFailure: async ({ event, step }) => {
+      const user_id = (event.data.event as { data: DigestGenerateEvent }).data
+        .user_id;
+      await step.run("mark-digest-failed-on-crash", async () => {
+        const supabase = createServiceClient();
+        await supabase
+          .from("digests")
+          .update({ status: "failed" })
+          .eq("user_id", user_id)
+          .in("status", ["pending", "generating"]);
+      });
+    },
   },
   async ({ event, step }) => {
     const { user_id, trigger, period_start, period_end } =
