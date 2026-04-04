@@ -41,7 +41,7 @@ export function InboundAddressCard({ address }: InboundAddressCardProps) {
           className="gap-1.5 shrink-0"
         >
           {copied ? (
-            <Check className="size-3.5 text-green-600" />
+            <Check className="size-3.5" />
           ) : (
             <Copy className="size-3.5" />
           )}

@@ -82,7 +82,7 @@ export async function scoreClusters(
   scored.sort((a, b) => b.score - a.score);
 
   // Persist rank + raw score so downstream steps can make gap-based tier decisions
-  await Promise.all(
+  const updateResults = await Promise.all(
     scored.map((c, rank) =>
       supabase
         .from("topic_clusters")
@@ -90,6 +90,11 @@ export async function scoreClusters(
         .eq("id", c.id)
     )
   );
+
+  const firstError = updateResults.find((r) => r.error)?.error;
+  if (firstError) {
+    throw new Error(`scoreClusters: update failed — ${firstError.message}`);
+  }
 }
 
 function resolveInterestWeight(
