@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const metadata: Metadata = { title: "Archive" };
 
@@ -28,14 +29,6 @@ export default function ArchivePage() {
           <EmptyState message="No pinned items yet. Pin important stories to keep them here." />
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="py-16 text-center text-sm text-muted-foreground">
-      {message}
     </div>
   );
 }

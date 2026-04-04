@@ -6,6 +6,8 @@ import { BriefSkeleton } from "./BriefSkeleton";
 import { ReadNowButton } from "./ReadNowButton";
 import { StoryBlock } from "./StoryBlock";
 import { QuickMentions } from "./QuickMentions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/layout/PageHeader";
 import type { BriefDigest } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
@@ -121,13 +123,14 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   if (generationError) {
     return (
       <div className="max-w-2xl mx-auto pb-12">
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">Your Brief</h1>
-            <p className="text-sm text-destructive">{generationError}</p>
-          </div>
-          <ReadNowButton onGenerate={handleGenerate} />
+        <div className="mb-8">
+          <PageHeader title="Your Brief">
+            <ReadNowButton onGenerate={handleGenerate} />
+          </PageHeader>
         </div>
+        <Alert variant="destructive">
+          <AlertDescription>{generationError}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -135,11 +138,8 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   if (isGenerating && !digest) {
     return (
       <div className="max-w-2xl mx-auto pb-12">
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">Your Brief</h1>
-            <p className="text-sm text-muted-foreground">Generating…</p>
-          </div>
+        <div className="mb-8">
+          <PageHeader title="Your Brief" description="Generating…" />
         </div>
         <BriefSkeleton inline />
       </div>
@@ -149,12 +149,10 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   if (!digest) {
     return (
       <div className="max-w-2xl mx-auto pb-12">
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">Your Brief</h1>
-            <p className="text-sm text-muted-foreground">Nothing here yet.</p>
-          </div>
-          <ReadNowButton onGenerate={handleGenerate} />
+        <div className="mb-8">
+          <PageHeader title="Your Brief" description="Nothing here yet.">
+            <ReadNowButton onGenerate={handleGenerate} />
+          </PageHeader>
         </div>
         <p className="text-sm text-muted-foreground">
           Add sources, then click{" "}
@@ -171,10 +169,7 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   return (
     <div className="max-w-2xl mx-auto pb-12">
       <div className="flex items-start justify-between gap-4 mb-8">
-        <BriefHeader
-          periodLabel={digest.periodLabel}
-          subject={digest.subject}
-        />
+        <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
         <ReadNowButton onGenerate={handleGenerate} />
       </div>
 

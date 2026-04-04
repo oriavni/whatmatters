@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { buttonVariants } from "@/lib/button-variants";
+import { cn } from "@/lib/utils";
+
 export default function MarketingLayout({
   children,
 }: {
@@ -15,12 +19,9 @@ export default function MarketingLayout({
             <a href="/login" className="hover:text-foreground transition-colors">
               Sign in
             </a>
-            <a
-              href="/signup"
-              className="bg-foreground text-background px-3 py-1.5 rounded-md text-sm font-medium hover:bg-foreground/90 transition-colors"
-            >
+            <Link href="/signup" className={cn(buttonVariants({ size: "sm" }))}>
               Get started
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
