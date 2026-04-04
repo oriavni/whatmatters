@@ -1,7 +1,6 @@
 import {
   Card,
   CardHeader,
-  CardTitle,
   CardContent,
 } from "@/components/ui/card";
 import type { BriefCluster } from "./types";
@@ -16,9 +15,9 @@ export function QuickMentions({ clusters }: QuickMentionsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Also this edition
-        </CardTitle>
+        </p>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">

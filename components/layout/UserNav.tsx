@@ -63,29 +63,23 @@ export function UserNav({ email, collapsed }: UserNavProps) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/app/account" />}>
           <UserCircle />
-          <Link href="/app/account" className="flex-1">
-            Account
-          </Link>
+          Account
         </DropdownMenuItem>
 
-        <DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/app/preferences" />}>
           <Settings />
-          <Link href="/app/preferences" className="flex-1">
-            Preferences
-          </Link>
+          Preferences
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        {/* Use a form so signout works without JS too */}
+        {/* form action so signout works without JS too */}
         <form action={signout}>
-          <DropdownMenuItem className="w-full cursor-pointer" aria-label="Sign out">
-            <button type="submit" className="flex w-full items-center gap-1.5">
-              <LogOut className="size-4" />
-              Sign out
-            </button>
+          <DropdownMenuItem render={<button type="submit" className="w-full" />}>
+            <LogOut />
+            Sign out
           </DropdownMenuItem>
         </form>
       </DropdownMenuContent>

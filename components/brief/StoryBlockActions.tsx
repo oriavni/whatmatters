@@ -28,15 +28,21 @@ export function StoryBlockActions({
           <TooltipTrigger
             render={
               <Button
+                render={
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  />
+                }
+                nativeButton={false}
                 variant="ghost"
                 size="icon-sm"
                 className="text-muted-foreground hover:text-foreground"
               />
             }
           >
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center size-full">
-              <ExternalLink className="size-3.5" />
-            </a>
+            <ExternalLink className="size-3.5" />
           </TooltipTrigger>
           <TooltipContent>Read original</TooltipContent>
         </Tooltip>
