@@ -22,6 +22,15 @@ export const rssFetchOne = inngest.createFunction(
     name: "Fetch RSS Feed (on add)",
     triggers: [{ event: "source/added" }],
     retries: 2,
+    onFailure: async ({ event, error }) => {
+      // Only mark the source as error after ALL retries are exhausted
+      const sourceId = (event.data.event as { data: SourceAddedEvent }).data.source_id;
+      const supabase = createServiceClient();
+      await supabase
+        .from("sources")
+        .update({ status: "error", error_message: error.message })
+        .eq("id", sourceId);
+    },
   },
   async ({ event, step }) => {
     const { source_id, user_id } = event.data as SourceAddedEvent;
@@ -55,10 +64,6 @@ export const rssFetchOne = inngest.createFunction(
       try {
         feed = await fetchRssFeed(source.url!);
       } catch (err) {
-        await supabase
-          .from("sources")
-          .update({ status: "error", error_message: String(err) })
-          .eq("id", source_id);
         throw new Error(`fetch: ${String(err)}`);
       }
 

@@ -29,7 +29,7 @@ export const rssFetchAll = inngest.createFunction(
         .from("sources")
         .select("id, user_id, url, name")
         .eq("type", "rss")
-        .eq("status", "active")
+        .in("status", ["active", "error"])
         .not("url", "is", null);
       if (error) throw new Error(`load-rss-sources: ${error.message}`);
       return data ?? [];
