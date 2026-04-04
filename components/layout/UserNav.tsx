@@ -42,7 +42,7 @@ export function UserNav({ email, collapsed }: UserNavProps) {
         aria-label="User menu"
       >
         <Avatar size="sm" className="shrink-0">
-          <AvatarFallback className="text-[10px] font-medium">
+          <AvatarFallback className="text-[0.625rem] font-medium">
             {initials}
           </AvatarFallback>
         </Avatar>

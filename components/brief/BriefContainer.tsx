@@ -6,6 +6,7 @@ import { BriefSkeleton } from "./BriefSkeleton";
 import { ReadNowButton } from "./ReadNowButton";
 import { StoryBlock } from "./StoryBlock";
 import { QuickMentions } from "./QuickMentions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { BriefDigest } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
@@ -124,10 +125,12 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
         <div className="flex items-start justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight">Your Brief</h1>
-            <p className="text-sm text-destructive">{generationError}</p>
           </div>
           <ReadNowButton onGenerate={handleGenerate} />
         </div>
+        <Alert variant="destructive">
+          <AlertDescription>{generationError}</AlertDescription>
+        </Alert>
       </div>
     );
   }
