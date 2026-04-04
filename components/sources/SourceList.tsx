@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Rss, Mail, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Rss,
+  Mail,
+  MoreHorizontal,
+  RefreshCw,
+  Pause,
+  Play,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,7 +18,17 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface Source {
   id: string;
@@ -18,11 +37,22 @@ interface Source {
   type: "rss" | "newsletter" | "manual";
   status: "active" | "paused" | "error";
   created_at: string;
+  last_fetched_at: string | null;
+  error_message: string | null;
 }
 
 interface SourceListProps {
-  /** Increment to trigger a refresh from outside */
   refreshKey?: number;
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 export function SourceList({ refreshKey = 0 }: SourceListProps) {
@@ -48,6 +78,16 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  function handleDeleted(id: string) {
+    setSources((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function handleUpdated(id: string, updates: Partial<Source>) {
+    setSources((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    );
+  }
 
   if (loading) {
     return (
@@ -91,7 +131,12 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
       <CardContent className="p-0">
         <ul className="divide-y">
           {sources.map((source) => (
-            <SourceRow key={source.id} source={source} />
+            <SourceRow
+              key={source.id}
+              source={source}
+              onDeleted={() => handleDeleted(source.id)}
+              onUpdated={(updates) => handleUpdated(source.id, updates)}
+            />
           ))}
         </ul>
       </CardContent>
@@ -99,27 +144,198 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
   );
 }
 
-function SourceRow({ source }: { source: Source }) {
+function SourceRow({
+  source: init,
+  onDeleted,
+  onUpdated,
+}: {
+  source: Source;
+  onDeleted: () => void;
+  onUpdated: (updates: Partial<Source>) => void;
+}) {
+  const [source, setSource] = useState(init);
+  const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameInput, setNameInput] = useState(init.name);
+  const prevStatus = useRef(init.status);
+
   const Icon = source.type === "rss" ? Rss : Mail;
+
+  async function patch(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/sources/${source.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Request failed");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applyOptimistic(updates: Partial<Source>) {
+    setSource((s) => ({ ...s, ...updates }));
+    onUpdated(updates);
+  }
+
+  async function handlePauseResume() {
+    const next: Source["status"] =
+      source.status === "paused" ? "active" : "paused";
+    prevStatus.current = source.status;
+    applyOptimistic({ status: next });
+    try {
+      await patch({ status: next });
+    } catch {
+      applyOptimistic({ status: prevStatus.current });
+      toast.error("Could not update source");
+    }
+  }
+
+  async function handleRetry() {
+    prevStatus.current = source.status;
+    applyOptimistic({ status: "active", error_message: null });
+    try {
+      await patch({ action: "retry" });
+      toast.success("Fetch queued — check back in a moment");
+    } catch {
+      applyOptimistic({ status: prevStatus.current });
+      toast.error("Could not queue fetch");
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/sources/${source.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      onDeleted();
+    } catch {
+      toast.error("Could not delete source");
+      setBusy(false);
+    }
+  }
+
+  async function commitRename() {
+    const trimmed = nameInput.trim();
+    setRenaming(false);
+    if (!trimmed || trimmed === source.name) return;
+    const prev = source.name;
+    applyOptimistic({ name: trimmed });
+    try {
+      await patch({ name: trimmed });
+    } catch {
+      applyOptimistic({ name: prev });
+      setNameInput(prev);
+      toast.error("Could not rename source");
+    }
+  }
 
   return (
     <li className="flex items-center gap-3 px-4 py-3">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <Icon className="size-4 shrink-0 text-muted-foreground mt-0.5 self-start" />
+
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{source.name}</p>
+        {renaming ? (
+          <Input
+            className="h-7 text-sm"
+            value={nameInput}
+            autoFocus
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") {
+                setRenaming(false);
+                setNameInput(source.name);
+              }
+            }}
+          />
+        ) : (
+          <p className="text-sm font-medium truncate">{source.name}</p>
+        )}
         {source.url && (
-          <p className="text-xs text-muted-foreground truncate">{source.url}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {source.url}
+          </p>
+        )}
+        {source.status === "error" && source.error_message ? (
+          <p
+            className="text-xs text-destructive truncate mt-0.5"
+            title={source.error_message}
+          >
+            {source.error_message}
+          </p>
+        ) : source.last_fetched_at ? (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Fetched {relativeTime(source.last_fetched_at)}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-0.5">Never fetched</p>
         )}
       </div>
+
       <div className="flex items-center gap-2 shrink-0">
+        {source.status === "paused" && (
+          <Badge variant="secondary">Paused</Badge>
+        )}
         {source.status === "error" && (
-          <AlertCircle className="size-3.5 text-destructive" />
+          <Badge variant="destructive">Error</Badge>
         )}
-        {source.status !== "active" && (
-          <Badge variant="secondary" className="text-xs">
-            {source.status}
-          </Badge>
-        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                disabled={busy}
+                aria-label="Source options"
+              />
+            }
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleRetry}>
+              <RefreshCw className="size-4" />
+              Retry fetch
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handlePauseResume}>
+              {source.status === "paused" ? (
+                <>
+                  <Play className="size-4" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="size-4" />
+                  Pause
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setNameInput(source.name);
+                setRenaming(true);
+              }}
+            >
+              <Pencil className="size-4" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+              <Trash2 className="size-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </li>
   );
