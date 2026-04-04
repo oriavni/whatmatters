@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 interface AddSourceDialogProps {
   /** Called after a source is successfully added */
   onAdded?: () => void;
-  children: React.ReactNode;
+  children: React.ReactElement;
 }
 
 type Phase =
@@ -107,7 +107,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={children as React.ReactElement} />
+      <DialogTrigger render={children} />
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
