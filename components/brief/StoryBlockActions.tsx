@@ -162,8 +162,11 @@ function ActionIcon({
             className={cn(
               "transition-colors",
               active
-                // Filled background + contrasting icon — clearly "on"
-                ? "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground cursor-default"
+                // Inverted: bg-foreground/text-background is maximum contrast
+                // in both light and dark mode, unlike bg-accent which is
+                // oklch(0.97 0 0) in light mode — 3 lightness units from white,
+                // visually indistinguishable from the page background.
+                ? "bg-foreground text-background hover:bg-foreground hover:text-background cursor-default"
                 : "text-muted-foreground hover:text-foreground"
             )}
           />
