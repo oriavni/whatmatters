@@ -40,5 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Claude Code internal tooling (worktrees, session state)
-.claude/worktrees/
+# Claude Code internal tooling (worktrees, session state, local settings)
+.claude/
