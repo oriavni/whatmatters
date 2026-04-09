@@ -77,7 +77,7 @@ export function UserNav({ email, collapsed }: UserNavProps) {
 
         {/* form action so signout works without JS too */}
         <form action={signout}>
-          <DropdownMenuItem render={<button type="submit" className="w-full" />}>
+          <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
             <LogOut />
             Sign out
           </DropdownMenuItem>
