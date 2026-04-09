@@ -236,5 +236,7 @@ export interface FeedbackRequest {
   digest_id?: string;
   cluster_id?: string;
   raw_item_id?: string;
+  /** Topic label — required for ignore_topic so it can be stored in user_preferences */
+  topic_label?: string;
   value?: Record<string, unknown>;
 }

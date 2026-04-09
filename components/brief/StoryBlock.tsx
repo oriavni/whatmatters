@@ -32,6 +32,7 @@ export function StoryBlock({ cluster, isLead, digestId }: StoryBlockProps) {
           <StoryBlockActions
             digestId={digestId}
             clusterId={cluster.id}
+            topicLabel={cluster.topic}
             sourceUrl={cluster.sourceUrl}
           />
         </CardAction>

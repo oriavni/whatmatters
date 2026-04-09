@@ -14,13 +14,15 @@ import { cn } from "@/lib/utils";
 interface StoryBlockActionsProps {
   digestId: string;
   clusterId: string;
+  topicLabel: string;
   sourceUrl: string | null;
 }
 
 async function sendFeedback(
   eventType: string,
   digestId: string,
-  clusterId: string
+  clusterId: string,
+  extra?: Record<string, string>
 ): Promise<boolean> {
   try {
     const res = await fetch("/api/feedback", {
@@ -30,6 +32,7 @@ async function sendFeedback(
         event_type: eventType,
         digest_id: digestId,
         cluster_id: clusterId,
+        ...extra,
       }),
     });
     if (!res.ok) {
@@ -48,8 +51,8 @@ async function sendFeedback(
  * Like / Save / Ignore are all ONE-WAY (no toggle-back).
  *
  * Like   — reading signal; un-liking is not meaningful at this stage.
- * Save   — a commitment; un-save requires a dedicated delete flow.
- * Ignore — strongest signal; should never be accidentally toggled off.
+ * Save   — writes to saved_items; un-save requires a dedicated delete flow.
+ * Ignore — appends to user_preferences.ignored_topics; one-way by design.
  *
  * State is session-local (useState). It resets on page refresh because the
  * backend does not yet expose a GET endpoint for feedback events. Once that
@@ -58,6 +61,7 @@ async function sendFeedback(
 export function StoryBlockActions({
   digestId,
   clusterId,
+  topicLabel,
   sourceUrl,
 }: StoryBlockActionsProps) {
   const [liked, setLiked] = useState(false);
@@ -66,22 +70,28 @@ export function StoryBlockActions({
 
   async function handleLike() {
     if (liked) return;
-    setLiked(true); // optimistic — show immediately
+    setLiked(true);
     const ok = await sendFeedback("like", digestId, clusterId);
-    if (!ok) setLiked(false); // rollback on failure
+    if (!ok) setLiked(false);
   }
 
   async function handleSave() {
     if (saved) return;
     setSaved(true);
     const ok = await sendFeedback("save", digestId, clusterId);
-    if (!ok) setSaved(false);
+    if (!ok) {
+      setSaved(false);
+    } else {
+      toast.success("Saved — find it on the Saved page");
+    }
   }
 
   async function handleIgnore() {
     if (ignored) return;
     setIgnored(true);
-    const ok = await sendFeedback("ignore_topic", digestId, clusterId);
+    const ok = await sendFeedback("ignore_topic", digestId, clusterId, {
+      topic_label: topicLabel,
+    });
     if (!ok) {
       setIgnored(false);
     } else {

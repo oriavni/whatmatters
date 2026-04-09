@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   BookOpen,
+  Bookmark,
   Archive,
   Radio,
   Compass,
@@ -25,6 +26,7 @@ import { UserNav } from "./UserNav";
 
 const navItems = [
   { label: "Brief",       href: "/app/brief",       icon: BookOpen },
+  { label: "Saved",       href: "/app/saved",       icon: Bookmark },
   { label: "Archive",     href: "/app/archive",     icon: Archive  },
   { label: "Sources",     href: "/app/sources",     icon: Radio    },
   { label: "Discover",    href: "/app/discover",    icon: Compass  },
