@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, Loader2, Rss, Mail } from "lucide-react";
+import { CheckCircle, Loader2, Rss, Mail, SplitSquareHorizontal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ type Phase =
   | { kind: "input" }
   | { kind: "detecting" }
   | { kind: "detected_rss"; feed_url: string; feed_title: string }
+  | { kind: "detected_ambiguous"; feed_url: string; feed_title: string; brief_address: string | null }
   | { kind: "detected_newsletter"; brief_address: string | null; message: string }
   | { kind: "detected_unknown"; message: string }
   | { kind: "adding" }
@@ -67,6 +68,13 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
           kind: "detected_rss",
           feed_url: data.feed_url,
           feed_title: data.feed_title,
+        });
+      } else if (data.detected_type === "ambiguous") {
+        setPhase({
+          kind: "detected_ambiguous",
+          feed_url: data.feed_url,
+          feed_title: data.feed_title,
+          brief_address: data.brief_address ?? null,
         });
       } else if (data.detected_type === "newsletter") {
         setPhase({
@@ -191,6 +199,62 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                   )}
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Ambiguous: has both RSS feed and newsletter option */}
+          {phase.kind === "detected_ambiguous" && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <SplitSquareHorizontal className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Two ways to follow this</p>
+                  <p className="text-sm text-muted-foreground">
+                    This source has an RSS feed and is also a newsletter. Choose how you&apos;d like to receive it.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* RSS option */}
+                <button
+                  type="button"
+                  onClick={() => handleAdd(phase.feed_url, phase.feed_title)}
+                  className="flex flex-col items-start gap-2 rounded-md border p-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Rss className="size-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Add as RSS feed</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      WhatMatters fetches new posts automatically.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Newsletter / email option */}
+                <div className="flex flex-col items-start gap-2 rounded-md border p-3">
+                  <Mail className="size-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Subscribe via email</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Forward newsletters to your Brief address.
+                    </p>
+                  </div>
+                  {phase.brief_address && (
+                    <code className="mt-1 block w-full rounded bg-muted px-2 py-1 text-xs font-mono break-all">
+                      {phase.brief_address}
+                    </code>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPhase({ kind: "input" })}
+              >
+                Back
+              </Button>
             </div>
           )}
 
