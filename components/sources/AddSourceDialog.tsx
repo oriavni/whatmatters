@@ -268,7 +268,8 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                   <p className="text-sm text-muted-foreground">{phase.message}</p>
                   {phase.brief_address && (
                     <p className="mt-2 text-sm">
-                      Subscribe using your Brief address:
+                      Use your Brief address to subscribe to new newsletters, or
+                      as a forwarding destination for ones you already receive:
                       <br />
                       <code className="mt-1 inline-block rounded bg-muted px-2 py-1 text-xs font-mono">
                         {phase.brief_address}

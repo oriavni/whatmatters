@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ThumbsUp, Bookmark, BellOff, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface StoryBlockActionsProps {
   digestId: string;
@@ -19,9 +21,9 @@ async function sendFeedback(
   eventType: string,
   digestId: string,
   clusterId: string
-) {
+): Promise<boolean> {
   try {
-    await fetch("/api/feedback", {
+    const res = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -30,8 +32,15 @@ async function sendFeedback(
         cluster_id: clusterId,
       }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error((data as { error?: string }).error ?? "Could not save feedback");
+      return false;
+    }
+    return true;
   } catch {
     toast.error("Could not save feedback");
+    return false;
   }
 }
 
@@ -40,22 +49,37 @@ export function StoryBlockActions({
   clusterId,
   sourceUrl,
 }: StoryBlockActionsProps) {
+  const [active, setActive] = useState<Set<string>>(new Set());
+
+  async function handleAction(eventType: string) {
+    const ok = await sendFeedback(eventType, digestId, clusterId);
+    if (ok) {
+      setActive((prev) => new Set([...prev, eventType]));
+      if (eventType === "ignore_topic") {
+        toast.success("Topic ignored — we'll show it less often");
+      }
+    }
+  }
+
   return (
     <div className="flex items-center gap-0.5">
       <ActionIcon
         icon={ThumbsUp}
         label="Like"
-        onClick={() => sendFeedback("like", digestId, clusterId)}
+        active={active.has("like")}
+        onClick={() => handleAction("like")}
       />
       <ActionIcon
         icon={Bookmark}
         label="Save"
-        onClick={() => sendFeedback("save", digestId, clusterId)}
+        active={active.has("save")}
+        onClick={() => handleAction("save")}
       />
       <ActionIcon
         icon={BellOff}
         label="Ignore topic"
-        onClick={() => sendFeedback("ignore_topic", digestId, clusterId)}
+        active={active.has("ignore_topic")}
+        onClick={() => handleAction("ignore_topic")}
       />
       {sourceUrl && (
         <Tooltip>
@@ -88,23 +112,34 @@ export function StoryBlockActions({
 function ActionIcon({
   icon: Icon,
   label,
+  active,
   onClick,
 }: {
   icon: React.ElementType;
   label: string;
+  active: boolean;
   onClick: () => void;
 }) {
   return (
     <Tooltip>
+      {/*
+       * onClick is placed on TooltipTrigger (not on the render Button) so it
+       * lands in elementProps and is merged cleanly into the final button element
+       * by Base UI's useRenderElement. Placing it inside render={} requires it to
+       * survive a cloneElement + mergeProps chain, which can silently drop it.
+       */}
       <TooltipTrigger
         render={
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={onClick}
-            className="text-muted-foreground hover:text-foreground"
+            className={cn(
+              "text-muted-foreground hover:text-foreground",
+              active && "text-foreground"
+            )}
           />
         }
+        onClick={onClick}
       >
         <Icon className="size-3.5" />
       </TooltipTrigger>
