@@ -44,20 +44,48 @@ async function sendFeedback(
   }
 }
 
+/**
+ * Like / Save / Ignore are all ONE-WAY (no toggle-back).
+ *
+ * Like   — reading signal; un-liking is not meaningful at this stage.
+ * Save   — a commitment; un-save requires a dedicated delete flow.
+ * Ignore — strongest signal; should never be accidentally toggled off.
+ *
+ * State is session-local (useState). It resets on page refresh because the
+ * backend does not yet expose a GET endpoint for feedback events. Once that
+ * exists, initial state can be seeded from the server.
+ */
 export function StoryBlockActions({
   digestId,
   clusterId,
   sourceUrl,
 }: StoryBlockActionsProps) {
-  const [active, setActive] = useState<Set<string>>(new Set());
+  const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [ignored, setIgnored] = useState(false);
 
-  async function handleAction(eventType: string) {
-    const ok = await sendFeedback(eventType, digestId, clusterId);
-    if (ok) {
-      setActive((prev) => new Set([...prev, eventType]));
-      if (eventType === "ignore_topic") {
-        toast.success("Topic ignored — we'll show it less often");
-      }
+  async function handleLike() {
+    if (liked) return;
+    setLiked(true); // optimistic — show immediately
+    const ok = await sendFeedback("like", digestId, clusterId);
+    if (!ok) setLiked(false); // rollback on failure
+  }
+
+  async function handleSave() {
+    if (saved) return;
+    setSaved(true);
+    const ok = await sendFeedback("save", digestId, clusterId);
+    if (!ok) setSaved(false);
+  }
+
+  async function handleIgnore() {
+    if (ignored) return;
+    setIgnored(true);
+    const ok = await sendFeedback("ignore_topic", digestId, clusterId);
+    if (!ok) {
+      setIgnored(false);
+    } else {
+      toast.success("Topic ignored — we'll show it less often");
     }
   }
 
@@ -65,21 +93,21 @@ export function StoryBlockActions({
     <div className="flex items-center gap-0.5">
       <ActionIcon
         icon={ThumbsUp}
-        label="Like"
-        active={active.has("like")}
-        onClick={() => handleAction("like")}
+        label={liked ? "Liked" : "Like"}
+        active={liked}
+        onClick={handleLike}
       />
       <ActionIcon
         icon={Bookmark}
-        label="Save"
-        active={active.has("save")}
-        onClick={() => handleAction("save")}
+        label={saved ? "Saved" : "Save"}
+        active={saved}
+        onClick={handleSave}
       />
       <ActionIcon
         icon={BellOff}
-        label="Ignore topic"
-        active={active.has("ignore_topic")}
-        onClick={() => handleAction("ignore_topic")}
+        label={ignored ? "Topic ignored" : "Ignore topic"}
+        active={ignored}
+        onClick={handleIgnore}
       />
       {sourceUrl && (
         <Tooltip>
@@ -123,10 +151,8 @@ function ActionIcon({
   return (
     <Tooltip>
       {/*
-       * onClick is placed on TooltipTrigger (not on the render Button) so it
-       * lands in elementProps and is merged cleanly into the final button element
-       * by Base UI's useRenderElement. Placing it inside render={} requires it to
-       * survive a cloneElement + mergeProps chain, which can silently drop it.
+       * onClick on TooltipTrigger (not inside render={}) so it lands in
+       * elementProps and is always merged cleanly by Base UI's useRenderElement.
        */}
       <TooltipTrigger
         render={
@@ -134,8 +160,11 @@ function ActionIcon({
             variant="ghost"
             size="icon-sm"
             className={cn(
-              "text-muted-foreground hover:text-foreground",
-              active && "text-foreground"
+              "transition-colors",
+              active
+                // Filled background + contrasting icon — clearly "on"
+                ? "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground cursor-default"
+                : "text-muted-foreground hover:text-foreground"
             )}
           />
         }
