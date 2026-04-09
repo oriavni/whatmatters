@@ -6,23 +6,57 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { ThumbsUp, Bookmark, Pin, BellOff, ExternalLink } from "lucide-react";
+import { ThumbsUp, Bookmark, BellOff, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 interface StoryBlockActionsProps {
+  digestId: string;
   clusterId: string;
   sourceUrl: string | null;
 }
 
+async function sendFeedback(
+  eventType: string,
+  digestId: string,
+  clusterId: string
+) {
+  try {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: eventType,
+        digest_id: digestId,
+        cluster_id: clusterId,
+      }),
+    });
+  } catch {
+    toast.error("Could not save feedback");
+  }
+}
+
 export function StoryBlockActions({
-  clusterId: _clusterId,
+  digestId,
+  clusterId,
   sourceUrl,
 }: StoryBlockActionsProps) {
   return (
     <div className="flex items-center gap-0.5">
-      <ActionIcon icon={ThumbsUp} label="Like" />
-      <ActionIcon icon={Bookmark} label="Save" />
-      <ActionIcon icon={Pin} label="Pin" disabled />
-      <ActionIcon icon={BellOff} label="Ignore topic" />
+      <ActionIcon
+        icon={ThumbsUp}
+        label="Like"
+        onClick={() => sendFeedback("like", digestId, clusterId)}
+      />
+      <ActionIcon
+        icon={Bookmark}
+        label="Save"
+        onClick={() => sendFeedback("save", digestId, clusterId)}
+      />
+      <ActionIcon
+        icon={BellOff}
+        label="Ignore topic"
+        onClick={() => sendFeedback("ignore_topic", digestId, clusterId)}
+      />
       {sourceUrl && (
         <Tooltip>
           <TooltipTrigger
@@ -54,11 +88,11 @@ export function StoryBlockActions({
 function ActionIcon({
   icon: Icon,
   label,
-  disabled,
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
-  disabled?: boolean;
+  onClick: () => void;
 }) {
   return (
     <Tooltip>
@@ -67,7 +101,7 @@ function ActionIcon({
           <Button
             variant="ghost"
             size="icon-sm"
-            disabled={disabled}
+            onClick={onClick}
             className="text-muted-foreground hover:text-foreground"
           />
         }

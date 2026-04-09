@@ -13,9 +13,10 @@ import type { BriefCluster } from "./types";
 interface StoryBlockProps {
   cluster: BriefCluster;
   isLead?: boolean;
+  digestId: string;
 }
 
-export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
+export function StoryBlock({ cluster, isLead, digestId }: StoryBlockProps) {
   return (
     <Card>
       <CardHeader>
@@ -29,6 +30,7 @@ export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
         )}
         <CardAction>
           <StoryBlockActions
+            digestId={digestId}
             clusterId={cluster.id}
             sourceUrl={cluster.sourceUrl}
           />

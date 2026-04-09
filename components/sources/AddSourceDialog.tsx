@@ -122,8 +122,8 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                 <Label htmlFor="source-url">URL or RSS feed</Label>
                 <Input
                   id="source-url"
-                  type="url"
-                  placeholder="https://example.com or https://example.com/feed"
+                  type="text"
+                  placeholder="example.com or https://example.com/feed"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={phase.kind === "detecting"}

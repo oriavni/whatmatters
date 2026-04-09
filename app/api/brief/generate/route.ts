@@ -29,6 +29,24 @@ export async function POST() {
     );
   }
 
+  // Guard: ensure the user has at least one source. Without sources, generation
+  // can still fire (orphaned raw_items survive source deletion) which produces
+  // confusing results.
+  const { count: sourceCount } = await service
+    .from("sources")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if (!sourceCount || sourceCount === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Add at least one source before generating a Brief.",
+      },
+      { status: 422 }
+    );
+  }
+
   // Guard: ensure the user has at least one ingested item within the past 7 days.
   // We intentionally do not filter by is_processed — RSS items are inserted as
   // processed=true, and newsletter items are marked processed=true by email-inbound.

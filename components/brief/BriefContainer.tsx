@@ -176,7 +176,7 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
       {fullBlocks.length > 0 && (
         <div className="space-y-4">
           {fullBlocks.map((cluster, i) => (
-            <StoryBlock key={cluster.id} cluster={cluster} isLead={i < 2} />
+            <StoryBlock key={cluster.id} cluster={cluster} isLead={i < 2} digestId={digest.id} />
           ))}
         </div>
       )}
