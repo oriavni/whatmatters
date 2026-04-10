@@ -169,17 +169,20 @@ function ActionIcon({
           <Button
             variant="ghost"
             size="icon-sm"
-            className={cn(
-              "transition-colors",
-              active
-                ? "text-foreground hover:text-foreground cursor-default"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            className="text-muted-foreground hover:text-foreground"
           />
         }
         onClick={onClick}
       >
-        <Icon className="size-3.5" />
+        {/*
+         * Active color applied directly on the Icon, not on the Button.
+         * The Button className has to survive cloneElement → mergeProps →
+         * ButtonPrimitive — too many layers for a conditional class to
+         * reliably make it through. The Icon is a plain child of
+         * TooltipTrigger with no merge chain, so !text-foreground is
+         * guaranteed to reach the SVG element.
+         */}
+        <Icon className={cn("size-3.5", active && "!text-foreground")} />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

@@ -17,8 +17,8 @@ interface SavedCluster {
   created_at: string;
   cluster_id: string;
   topic_clusters: {
-    label: string;
-    synthesis: string | null;
+    topic: string;
+    summary: string | null;
   } | null;
 }
 
@@ -91,10 +91,10 @@ export function SavedList() {
         return (
           <Card key={item.id}>
             <CardHeader>
-              <CardTitle className="text-base">{cluster.label}</CardTitle>
-              {cluster.synthesis && (
+              <CardTitle className="text-base">{cluster.topic}</CardTitle>
+              {cluster.summary && (
                 <CardDescription className="text-sm leading-relaxed">
-                  {cluster.synthesis}
+                  {cluster.summary}
                 </CardDescription>
               )}
               <CardAction>

@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /** GET /api/saved — list the user's saved clusters */
 export async function GET() {
+  // Auth check with user client
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  // Use service client for the query so PostgREST RLS on the topic_clusters
+  // FK join doesn't block results. Correct DB column names are topic + summary
+  // (not label + synthesis — the TypeScript TopicCluster interface is misaligned).
+  const service = createServiceClient();
+  const { data, error } = await service
     .from("saved_items")
     .select(
       `
@@ -17,8 +23,8 @@ export async function GET() {
       created_at,
       cluster_id,
       topic_clusters (
-        label,
-        synthesis
+        topic,
+        summary
       )
     `
     )
