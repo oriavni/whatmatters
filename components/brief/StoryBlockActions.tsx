@@ -7,9 +7,14 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { ThumbsUp, Bookmark, BellOff, ExternalLink } from "lucide-react";
+import {
+  ThumbsUp,
+  Bookmark,
+  BookmarkCheck,
+  BellOff,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface StoryBlockActionsProps {
   digestId: string;
@@ -48,15 +53,12 @@ async function sendFeedback(
 }
 
 /**
- * Like / Save / Ignore are all ONE-WAY (no toggle-back).
+ * Like    — one-way signal (un-like not supported yet)
+ * Save    — toggleable: click to save, click again to unsave
+ * Ignore  — one-way (strongest signal, should not be toggled off accidentally)
  *
- * Like   — reading signal; un-liking is not meaningful at this stage.
- * Save   — writes to saved_items; un-save requires a dedicated delete flow.
- * Ignore — appends to user_preferences.ignored_topics; one-way by design.
- *
- * State is session-local (useState). It resets on page refresh because the
- * backend does not yet expose a GET endpoint for feedback events. Once that
- * exists, initial state can be seeded from the server.
+ * Active state uses inline style with CSS variables so it is guaranteed to
+ * reach the SVG element regardless of Tailwind scan / className merge chain.
  */
 export function StoryBlockActions({
   digestId,
@@ -76,14 +78,23 @@ export function StoryBlockActions({
   }
 
   async function handleSave() {
-    if (saved) return;
+    if (saved) {
+      // Unsave — optimistic
+      setSaved(false);
+      const res = await fetch(
+        `/api/saved?cluster_id=${encodeURIComponent(clusterId)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        setSaved(true); // rollback
+        toast.error("Could not remove from saved");
+      }
+      return;
+    }
+    // Save — optimistic
     setSaved(true);
     const ok = await sendFeedback("save", digestId, clusterId);
-    if (!ok) {
-      setSaved(false);
-    } else {
-      toast.success("Saved — find it on the Saved page");
-    }
+    if (!ok) setSaved(false);
   }
 
   async function handleIgnore() {
@@ -99,24 +110,32 @@ export function StoryBlockActions({
     }
   }
 
+  // Active icon color: inline CSS variable so it bypasses Tailwind scanning
+  // and the cloneElement/mergeProps chain in TooltipTrigger.
+  const activeStyle = { color: "var(--color-foreground)" } as const;
+
   return (
     <div className="flex items-center gap-0.5">
       <ActionIcon
         icon={ThumbsUp}
         label={liked ? "Liked" : "Like"}
         active={liked}
+        activeStyle={activeStyle}
         onClick={handleLike}
       />
       <ActionIcon
         icon={Bookmark}
-        label={saved ? "Saved" : "Save"}
+        activeIcon={BookmarkCheck}
+        label={saved ? "Remove from saved" : "Save"}
         active={saved}
+        activeStyle={activeStyle}
         onClick={handleSave}
       />
       <ActionIcon
         icon={BellOff}
         label={ignored ? "Topic ignored" : "Ignore topic"}
         active={ignored}
+        activeStyle={activeStyle}
         onClick={handleIgnore}
       />
       {sourceUrl && (
@@ -149,20 +168,27 @@ export function StoryBlockActions({
 
 function ActionIcon({
   icon: Icon,
+  activeIcon: ActiveIcon,
   label,
   active,
+  activeStyle,
   onClick,
 }: {
   icon: React.ElementType;
+  activeIcon?: React.ElementType;
   label: string;
   active: boolean;
+  activeStyle: React.CSSProperties;
   onClick: () => void;
 }) {
+  const DisplayIcon = active && ActiveIcon ? ActiveIcon : Icon;
+
   return (
     <Tooltip>
       {/*
-       * onClick on TooltipTrigger (not inside render={}) so it lands in
-       * elementProps and is always merged cleanly by Base UI's useRenderElement.
+       * onClick on TooltipTrigger so it lands in elementProps and merges
+       * cleanly — placing it in render={<Button onClick>} requires surviving
+       * cloneElement + mergeProps which is unreliable.
        */}
       <TooltipTrigger
         render={
@@ -175,14 +201,14 @@ function ActionIcon({
         onClick={onClick}
       >
         {/*
-         * Active color applied directly on the Icon, not on the Button.
-         * The Button className has to survive cloneElement → mergeProps →
-         * ButtonPrimitive — too many layers for a conditional class to
-         * reliably make it through. The Icon is a plain child of
-         * TooltipTrigger with no merge chain, so !text-foreground is
-         * guaranteed to reach the SVG element.
+         * Active color applied via inline style, not Tailwind class.
+         * Tailwind may not scan dynamically-constructed class strings;
+         * inline style with a CSS variable is guaranteed to reach the SVG.
          */}
-        <Icon className={cn("size-3.5", active && "!text-foreground")} />
+        <DisplayIcon
+          className="size-3.5"
+          style={active ? activeStyle : undefined}
+        />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

@@ -37,7 +37,7 @@ export async function GET() {
   return NextResponse.json({ items: data ?? [] });
 }
 
-/** DELETE /api/saved?id=<saved_item_id> — remove a saved item */
+/** DELETE /api/saved?id=<row_id> OR ?cluster_id=<cluster_id> — remove a saved item */
 export async function DELETE(request: Request) {
   const supabase = await createClient();
   const {
@@ -47,13 +47,15 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const clusterId = searchParams.get("cluster_id");
 
-  const { error } = await supabase
-    .from("saved_items")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id); // RLS guard — users can only delete their own items
+  if (!id && !clusterId) {
+    return NextResponse.json({ error: "id or cluster_id is required" }, { status: 400 });
+  }
+
+  const { error } = id
+    ? await supabase.from("saved_items").delete().eq("id", id).eq("user_id", user.id)
+    : await supabase.from("saved_items").delete().eq("cluster_id", clusterId!).eq("user_id", user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
