@@ -10,11 +10,22 @@ export interface DetectRssResult {
   feed_title: string;
 }
 
+/**
+ * Returned when a URL belongs to a known newsletter platform but also
+ * exposes a parseable RSS/Atom feed. The user should be offered both
+ * options: add as RSS feed, or subscribe via their Brief address.
+ */
+export interface DetectAmbiguousResult {
+  type: "ambiguous";
+  feed_url: string;
+  feed_title: string;
+}
+
 export interface DetectNonRssResult {
   type: "newsletter" | "unknown";
 }
 
-export type DetectResult = DetectRssResult | DetectNonRssResult;
+export type DetectResult = DetectRssResult | DetectAmbiguousResult | DetectNonRssResult;
 
 const USER_AGENT = "WhatMatters/1.0 (feed detector; +https://whatmatters.app)";
 const TIMEOUT_MS = 8_000;
@@ -39,7 +50,8 @@ const RSS_CONTENT_TYPES = new Set([
   "text/xml",
 ]);
 
-// Common newsletter platform domains — steer user toward inbound address instead
+// Common newsletter platform domains — these may also expose RSS feeds,
+// so detection continues even when a match is found (see detectFeed).
 const NEWSLETTER_DOMAINS = [
   "substack.com",
   "beehiiv.com",
@@ -63,15 +75,21 @@ export async function detectFeed(input: string): Promise<DetectResult> {
 
   const url = new URL(normalized);
 
-  // Check if the host matches a known newsletter platform
+  // Check if the host matches a known newsletter platform.
+  // Unlike before, we don't short-circuit here — newsletter platforms often
+  // also expose RSS feeds (Substack, Ghost, Beehiiv all do). We attempt RSS
+  // detection regardless and return "ambiguous" when both are true.
   const isNewsletter = NEWSLETTER_DOMAINS.some(
     (d) => url.hostname === d || url.hostname.endsWith(`.${d}`)
   );
-  if (isNewsletter) return { type: "newsletter" };
 
   // 1. Try the URL directly
   const direct = await tryParseFeed(normalized);
-  if (direct) return direct;
+  if (direct) {
+    return isNewsletter
+      ? { type: "ambiguous", feed_url: direct.feed_url, feed_title: direct.feed_title }
+      : direct;
+  }
 
   // 2. Check Content-Type header (cheap HEAD request) to confirm it's not HTML
   const looksLikeFeed = await headIsFeed(normalized);
@@ -81,11 +99,16 @@ export async function detectFeed(input: string): Promise<DetectResult> {
     for (const path of RSS_PROBE_PATHS) {
       const candidate = origin + path;
       const result = await tryParseFeed(candidate);
-      if (result) return result;
+      if (result) {
+        return isNewsletter
+          ? { type: "ambiguous", feed_url: result.feed_url, feed_title: result.feed_title }
+          : result;
+      }
     }
   }
 
-  return { type: "unknown" };
+  // RSS detection exhausted — fall back to newsletter or unknown
+  return isNewsletter ? { type: "newsletter" } : { type: "unknown" };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -13,9 +13,20 @@ import type { BriefCluster } from "./types";
 interface StoryBlockProps {
   cluster: BriefCluster;
   isLead?: boolean;
+  digestId: string;
+  initialLiked?: boolean;
+  initialSaved?: boolean;
+  initialIgnored?: boolean;
 }
 
-export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
+export function StoryBlock({
+  cluster,
+  isLead,
+  digestId,
+  initialLiked = false,
+  initialSaved = false,
+  initialIgnored = false,
+}: StoryBlockProps) {
   return (
     <Card>
       <CardHeader>
@@ -29,8 +40,13 @@ export function StoryBlock({ cluster, isLead }: StoryBlockProps) {
         )}
         <CardAction>
           <StoryBlockActions
+            digestId={digestId}
             clusterId={cluster.id}
+            topicLabel={cluster.topic}
             sourceUrl={cluster.sourceUrl}
+            initialLiked={initialLiked}
+            initialSaved={initialSaved}
+            initialIgnored={initialIgnored}
           />
         </CardAction>
       </CardHeader>

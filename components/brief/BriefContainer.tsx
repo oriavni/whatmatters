@@ -20,13 +20,37 @@ interface CurrentResponse {
   generationStatus: GenerationStatus;
 }
 
+interface Interactions {
+  liked: Set<string>;
+  saved: Set<string>;
+  ignored: Set<string>;
+}
+
 interface BriefContainerProps {
   /** Reserved for /app/brief/[id] */
   digestId?: string;
 }
 
+async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interactions> {
+  const clusterIds = digest.clusters.map((c) => c.id).join(",");
+  if (!clusterIds) return { liked: new Set(), saved: new Set(), ignored: new Set() };
+  try {
+    const res = await fetch(`/api/interactions?cluster_ids=${encodeURIComponent(clusterIds)}`);
+    if (!res.ok) return { liked: new Set(), saved: new Set(), ignored: new Set() };
+    const data = await res.json();
+    return {
+      liked: new Set<string>(data.liked ?? []),
+      saved: new Set<string>(data.saved ?? []),
+      ignored: new Set<string>(data.ignored ?? []),
+    };
+  } catch {
+    return { liked: new Set(), saved: new Set(), ignored: new Set() };
+  }
+}
+
 export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   const [digest, setDigest] = useState<BriefDigest | null>(null);
+  const [interactions, setInteractions] = useState<Interactions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -70,7 +94,10 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
       const { digest: data, generationStatus } = await fetchCurrent();
 
       if (data) {
+        // Fetch interaction states for the newly arrived digest
+        const inter = await fetchInteractionsForDigest(data);
         setDigest(data);
+        setInteractions(inter);
         setIsGenerating(false);
         stopPolling();
         return;
@@ -86,9 +113,6 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
       }
 
       if (generationStatus === "idle") {
-        // Nothing is generating — the job may have been cleaned up externally.
-        // Stop polling so we don't loop forever; leave isGenerating true briefly
-        // so the UI doesn't flicker; the user can click "Read now" again.
         stopPolling();
         setIsGenerating(false);
         return;
@@ -98,12 +122,17 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
   }, [fetchCurrent, stopPolling]);
 
   useEffect(() => {
-    fetchCurrent().then(({ digest: data, generationStatus }) => {
-      setDigest(data);
+    fetchCurrent().then(async ({ digest: data, generationStatus }) => {
+      if (data) {
+        // Fetch interaction states before revealing the cards so buttons
+        // render with the correct initial state — no flash of inactive state.
+        const inter = await fetchInteractionsForDigest(data);
+        setDigest(data);
+        setInteractions(inter);
+      } else {
+        setDigest(null);
+      }
       setIsLoading(false);
-      // If something is already generating when the page loads (e.g. the user
-      // was redirected here after adding a source), auto-start polling so the
-      // brief appears without requiring a manual "Read now" click.
       if (!data && generationStatus === "generating") {
         setIsGenerating(true);
         startPolling();
@@ -176,7 +205,15 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
       {fullBlocks.length > 0 && (
         <div className="space-y-4">
           {fullBlocks.map((cluster, i) => (
-            <StoryBlock key={cluster.id} cluster={cluster} isLead={i < 2} />
+            <StoryBlock
+              key={cluster.id}
+              cluster={cluster}
+              isLead={i < 2}
+              digestId={digest.id}
+              initialLiked={interactions?.liked.has(cluster.id) ?? false}
+              initialSaved={interactions?.saved.has(cluster.id) ?? false}
+              initialIgnored={interactions?.ignored.has(cluster.id) ?? false}
+            />
           ))}
         </div>
       )}

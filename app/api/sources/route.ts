@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (result.type === "newsletter") {
+    if (result.type === "ambiguous" || result.type === "newsletter") {
       const { data: profile } = await supabase
         .from("users")
         .select("inbound_slug")
@@ -78,6 +78,16 @@ export async function POST(request: NextRequest) {
       const inboundAddress = profile?.inbound_slug
         ? `${profile.inbound_slug}@${config.postmark.inboundDomain}`
         : null;
+
+      // Ambiguous: platform has an RSS feed AND is a newsletter — let user choose
+      if (result.type === "ambiguous") {
+        return NextResponse.json({
+          detected_type: "ambiguous",
+          feed_url: result.feed_url,
+          feed_title: result.feed_title,
+          brief_address: inboundAddress,
+        });
+      }
 
       return NextResponse.json({
         detected_type: "newsletter",
