@@ -195,6 +195,7 @@ export type Database = {
           digest_time: string;
           digest_day: number | null;
           topics: string[];
+          ignored_topics: string[];
           email_format: string;
           created_at: string;
           updated_at: string;
@@ -205,6 +206,7 @@ export type Database = {
           digest_time?: string;
           digest_day?: number | null;
           topics?: string[];
+          ignored_topics?: string[];
           email_format?: string;
           created_at?: string;
           updated_at?: string;
@@ -215,6 +217,7 @@ export type Database = {
           digest_time?: string;
           digest_day?: number | null;
           topics?: string[];
+          ignored_topics?: string[];
           email_format?: string;
           created_at?: string;
           updated_at?: string;

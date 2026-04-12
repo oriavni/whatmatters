@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ThumbsUp,
+  Bell,
+  BellOff,
   Bookmark,
   BookmarkCheck,
-  BellOff,
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,6 +22,9 @@ interface StoryBlockActionsProps {
   clusterId: string;
   topicLabel: string;
   sourceUrl: string | null;
+  initialLiked?: boolean;
+  initialSaved?: boolean;
+  initialIgnored?: boolean;
 }
 
 async function sendFeedback(
@@ -28,7 +32,7 @@ async function sendFeedback(
   digestId: string,
   clusterId: string,
   extra?: Record<string, string>
-): Promise<boolean> {
+): Promise<{ ok: boolean; active?: boolean }> {
   try {
     const res = await fetch("/api/feedback", {
       method: "POST",
@@ -43,19 +47,24 @@ async function sendFeedback(
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       toast.error((data as { error?: string }).error ?? "Could not save feedback");
-      return false;
+      return { ok: false };
     }
-    return true;
+    const data = await res.json();
+    return { ok: true, active: data.active };
   } catch {
     toast.error("Could not save feedback");
-    return false;
+    return { ok: false };
   }
 }
 
 /**
- * Like    — one-way signal (un-like not supported yet)
- * Save    — toggleable: click to save, click again to unsave
- * Ignore  — one-way (strongest signal, should not be toggled off accidentally)
+ * Like    — toggle: first click = like, second click = unlike
+ * Save    — toggle: click to save, click again to unsave
+ * Ignore  — toggle: first click = ignore topic (BellOff), second click = un-ignore (Bell)
+ *
+ * Initial state (liked/saved/ignored) is passed from the parent which fetches
+ * it from /api/interactions on page load — so state is correct on first render,
+ * after refresh, and after navigating away and back.
  *
  * Active state uses inline style with CSS variables so it is guaranteed to
  * reach the SVG element regardless of Tailwind scan / className merge chain.
@@ -65,22 +74,28 @@ export function StoryBlockActions({
   clusterId,
   topicLabel,
   sourceUrl,
+  initialLiked = false,
+  initialSaved = false,
+  initialIgnored = false,
 }: StoryBlockActionsProps) {
-  const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [ignored, setIgnored] = useState(false);
+  const [liked, setLiked] = useState(initialLiked);
+  const [saved, setSaved] = useState(initialSaved);
+  const [ignored, setIgnored] = useState(initialIgnored);
 
   async function handleLike() {
-    if (liked) return;
-    setLiked(true);
-    const ok = await sendFeedback("like", digestId, clusterId);
-    if (!ok) setLiked(false);
+    const next = !liked;
+    setLiked(next); // optimistic
+    const result = await sendFeedback("like", digestId, clusterId);
+    if (!result.ok) {
+      setLiked(!next); // rollback
+    } else if (result.active !== undefined) {
+      setLiked(result.active); // sync with server truth
+    }
   }
 
   async function handleSave() {
     if (saved) {
-      // Unsave — optimistic
-      setSaved(false);
+      setSaved(false); // optimistic
       const res = await fetch(
         `/api/saved?cluster_id=${encodeURIComponent(clusterId)}`,
         { method: "DELETE" }
@@ -91,36 +106,43 @@ export function StoryBlockActions({
       }
       return;
     }
-    // Save — optimistic
-    setSaved(true);
-    const ok = await sendFeedback("save", digestId, clusterId);
-    if (!ok) setSaved(false);
+    setSaved(true); // optimistic
+    const result = await sendFeedback("save", digestId, clusterId);
+    if (!result.ok) setSaved(false);
   }
 
   async function handleIgnore() {
-    if (ignored) return;
-    setIgnored(true);
-    const ok = await sendFeedback("ignore_topic", digestId, clusterId, {
+    const next = !ignored;
+    setIgnored(next); // optimistic
+    const result = await sendFeedback("ignore_topic", digestId, clusterId, {
       topic_label: topicLabel,
     });
-    if (!ok) {
-      setIgnored(false);
+    if (!result.ok) {
+      setIgnored(!next); // rollback
     } else {
-      toast.success("Topic ignored — we'll show it less often");
+      const isNowIgnored = result.active !== undefined ? result.active : next;
+      setIgnored(isNowIgnored);
+      if (isNowIgnored) {
+        toast.success("Topic ignored — we'll show it less often");
+      } else {
+        toast.success("Topic un-ignored");
+      }
     }
   }
 
-  // Active icon color: inline CSS variable so it bypasses Tailwind scanning
-  // and the cloneElement/mergeProps chain in TooltipTrigger.
+  // Active color via inline CSS variable — bypasses Tailwind scanning and
+  // the cloneElement/mergeProps chain in TooltipTrigger.
+  // Like gets fill too so filled-vs-outline is unambiguous (no icon swap available).
   const activeStyle = { color: "var(--color-foreground)" } as const;
+  const activeFilledStyle = { color: "var(--color-foreground)", fill: "var(--color-foreground)" } as const;
 
   return (
     <div className="flex items-center gap-0.5">
       <ActionIcon
         icon={ThumbsUp}
-        label={liked ? "Liked" : "Like"}
+        label={liked ? "Unlike" : "Like"}
         active={liked}
-        activeStyle={activeStyle}
+        activeStyle={activeFilledStyle}
         onClick={handleLike}
       />
       <ActionIcon
@@ -132,8 +154,9 @@ export function StoryBlockActions({
         onClick={handleSave}
       />
       <ActionIcon
-        icon={BellOff}
-        label={ignored ? "Topic ignored" : "Ignore topic"}
+        icon={Bell}
+        activeIcon={BellOff}
+        label={ignored ? "Un-ignore topic" : "Ignore topic"}
         active={ignored}
         activeStyle={activeStyle}
         onClick={handleIgnore}
@@ -185,11 +208,6 @@ function ActionIcon({
 
   return (
     <Tooltip>
-      {/*
-       * onClick on TooltipTrigger so it lands in elementProps and merges
-       * cleanly — placing it in render={<Button onClick>} requires surviving
-       * cloneElement + mergeProps which is unreliable.
-       */}
       <TooltipTrigger
         render={
           <Button
@@ -200,11 +218,6 @@ function ActionIcon({
         }
         onClick={onClick}
       >
-        {/*
-         * Active color applied via inline style, not Tailwind class.
-         * Tailwind may not scan dynamically-constructed class strings;
-         * inline style with a CSS variable is guaranteed to reach the SVG.
-         */}
         <DisplayIcon
           className="size-3.5"
           style={active ? activeStyle : undefined}
