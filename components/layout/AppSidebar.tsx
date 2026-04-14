@@ -12,15 +12,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  BookOpen,
-  Bookmark,
-  Radio,
-  Compass,
-  Settings,
-} from "lucide-react";
+import { BookOpen, Bookmark, Radio, Compass, Settings } from "lucide-react";
 import { UserNav } from "./UserNav";
 
 const navItems = [
@@ -37,27 +30,23 @@ interface AppSidebarProps {
 
 export function AppSidebar({ userEmail }: AppSidebarProps) {
   const pathname = usePathname();
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
 
   return (
     <Sidebar collapsible="icon">
-      {/* Logo */}
-      <SidebarHeader className="h-12 justify-center border-b">
-        <Link
-          href="/app/brief"
-          className="flex items-center gap-2 px-2 font-semibold text-sm tracking-tight"
-        >
-          {/* Small dot mark visible in icon-only state */}
-          <span className="size-5 shrink-0 rounded-md bg-foreground flex items-center justify-center">
-            <span className="text-[0.625rem] font-bold text-background leading-none">W</span>
-          </span>
-          {!isCollapsed && <span>WhatMatters</span>}
-        </Link>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" render={<Link href="/app/brief" />}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background">
+                <span className="text-[0.625rem] font-bold leading-none">W</span>
+              </div>
+              <span className="font-semibold text-sm tracking-tight">WhatMatters</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
-      {/* Nav items */}
-      <SidebarContent className="pt-2">
+      <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -82,9 +71,8 @@ export function AppSidebar({ userEmail }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* User nav footer */}
-      <SidebarFooter className="border-t pt-2 pb-3">
-        <UserNav email={userEmail} collapsed={isCollapsed} />
+      <SidebarFooter>
+        <UserNav email={userEmail} />
       </SidebarFooter>
     </Sidebar>
   );

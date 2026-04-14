@@ -2,9 +2,14 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 import { usePathname } from "next/navigation";
 
-// Map route prefixes → display names for the breadcrumb
 const PAGE_LABELS: Array<[string, string]> = [
   ["/app/brief",       "Brief"],
   ["/app/archive",     "Archive"],
@@ -24,14 +29,18 @@ export function AppHeader() {
   const label = getPageLabel(pathname);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b bg-background px-4 sticky top-0 z-40">
-      {/* Sidebar toggle — on desktop collapses/expands; on mobile opens the Sheet */}
-      <SidebarTrigger className="-ml-1" />
-
-      <Separator orientation="vertical" className="h-4" />
-
-      {/* Page title — simple breadcrumb */}
-      <span className="text-sm font-medium truncate">{label}</span>
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+      <div className="flex items-center gap-2 px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>{label}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
     </header>
   );
 }
