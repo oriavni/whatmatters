@@ -7,9 +7,8 @@
  *   • To matches reply+{digest_id}@{reply_domain}
  *       → digest reply → fire email/reply.parse
  *
- * Security: Postmark inbound webhooks do not provide HMAC signatures.
- * We verify a shared secret passed as a Bearer token in the Authorization
- * header (configured in Postmark: Settings → Inbound → Webhook → Add header).
+ * Security: Postmark inbound webhooks do not support custom headers in the UI.
+ * We verify a shared secret passed as a `?secret=` query parameter in the URL.
  * The secret is POSTMARK_WEBHOOK_SECRET from env.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -33,9 +32,9 @@ interface PostmarkInboundPayload {
 const REPLY_PATTERN = /^reply\+([0-9a-f-]{36})@/i;
 
 export async function POST(request: NextRequest) {
-  // ── 1. Verify shared secret ────────────────────────────────────────────────
-  const authHeader = request.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  // ── 1. Verify shared secret (query param: ?secret=...) ────────────────────
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get("secret") ?? "";
 
   if (!token || token !== config.postmark.webhookSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
