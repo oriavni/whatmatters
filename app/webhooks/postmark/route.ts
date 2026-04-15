@@ -54,15 +54,19 @@ export async function POST(request: NextRequest) {
   const replyMatch = REPLY_PATTERN.exec(toAddress);
   if (replyMatch) {
     const digestId = replyMatch[1];
-    await inngest.send({
-      name: "email/reply.parse",
-      data: {
-        digest_id: digestId,
-        from_address: payload.From,
-        raw_text: payload.TextBody ?? "",
-        message_id: payload.MessageID,
-      },
-    });
+    const replyPayload = {
+      digest_id: digestId,
+      from_address: payload.From,
+      raw_text: payload.TextBody ?? "",
+      message_id: payload.MessageID,
+    };
+    console.log("[postmark/reply] firing email/reply.parse", replyPayload);
+    try {
+      await inngest.send({ name: "email/reply.parse", data: replyPayload });
+      console.log("[postmark/reply] inngest.send ok");
+    } catch (err) {
+      console.error("[postmark/reply] inngest.send failed:", err);
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -140,15 +144,19 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 7. Fire Inngest event ──────────────────────────────────────────────────
-  await inngest.send({
-    name: "email/inbound",
-    data: {
-      raw_item_id: rawItem.id,
-      user_id: userId,
-      sender_email: senderEmail,
-      sender_name: senderName,
-    },
-  });
+  const inboundPayload = {
+    raw_item_id: rawItem.id,
+    user_id: userId,
+    sender_email: senderEmail,
+    sender_name: senderName,
+  };
+  console.log("[postmark/inbound] firing email/inbound", inboundPayload);
+  try {
+    await inngest.send({ name: "email/inbound", data: inboundPayload });
+    console.log("[postmark/inbound] inngest.send ok");
+  } catch (err) {
+    console.error("[postmark/inbound] inngest.send failed:", err);
+  }
 
   return NextResponse.json({ ok: true });
 }
