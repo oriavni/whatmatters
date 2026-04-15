@@ -84,14 +84,15 @@ function matchCluster(
   clusters: { id: string; topic: string; sourceUrl: string | null }[]
 ): { id: string; topic: string; sourceUrl: string | null } | null {
   const lower = topic.toLowerCase();
-  // Prefer exact substring match first, then word overlap
-  const exact = clusters.find((c) => c.topic.toLowerCase().includes(lower));
+  // Use word-boundary matching to prevent "ai" matching "Ukraine", etc.
+  const wordBoundary = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+  const exact = clusters.find((c) => wordBoundary.test(c.topic));
   if (exact) return exact;
 
   const words = lower.split(/\s+/).filter((w) => w.length > 3);
   return (
     clusters.find((c) =>
-      words.some((w) => c.topic.toLowerCase().includes(w))
+      words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(c.topic))
     ) ?? null
   );
 }
