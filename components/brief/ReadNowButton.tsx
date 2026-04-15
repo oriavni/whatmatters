@@ -39,11 +39,11 @@ export function ReadNowButton({ onGenerate }: ReadNowButtonProps) {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
       onClick={handleReadNow}
       disabled={loading}
-      className="shrink-0 gap-1.5 text-muted-foreground hover:text-foreground"
+      className="shrink-0 gap-1.5"
     >
       {loading ? (
         <Loader2 className="size-3 animate-spin" />

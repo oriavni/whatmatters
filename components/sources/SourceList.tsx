@@ -327,7 +327,7 @@ function SourceRow({
               }}
             >
               <Pencil className="size-4" />
-              Rename
+              Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleDelete}>

@@ -2,6 +2,14 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 export const metadata: Metadata = { title: "Archive" };
 
@@ -12,6 +20,26 @@ export default function ArchivePage() {
         title="Archive"
         description="Past Briefs, saved items, and pinned stories."
       />
+
+      <Menubar>
+        <MenubarMenu>
+          <MenubarTrigger>Sort</MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem>Newest first</MenubarItem>
+            <MenubarItem>Oldest first</MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+        <MenubarMenu>
+          <MenubarTrigger>Filter</MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem>All sources</MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem>This week</MenubarItem>
+            <MenubarItem>This month</MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+      </Menubar>
+
       <Tabs defaultValue="briefs">
         <TabsList>
           <TabsTrigger value="briefs">Past Briefs</TabsTrigger>
