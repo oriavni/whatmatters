@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SavedList } from "@/components/saved/SavedList";
 import {
   Menubar,
   MenubarContent,
@@ -50,7 +51,7 @@ export default function ArchivePage() {
           <EmptyState message="No past Briefs yet. Your first one will appear here after it's sent." />
         </TabsContent>
         <TabsContent value="saved" className="mt-6">
-          <EmptyState message="No saved items yet. Save stories from any Brief." />
+          <SavedList />
         </TabsContent>
         <TabsContent value="pinned" className="mt-6">
           <EmptyState message="No pinned items yet. Pin important stories to keep them here." />
