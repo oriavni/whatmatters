@@ -47,7 +47,6 @@ export default function ArchivePage() {
           <TabsTrigger value="pinned">Pinned</TabsTrigger>
         </TabsList>
         <TabsContent value="briefs" className="mt-6">
-          {/* TODO (Prompt 9): ArchiveList component */}
           <EmptyState message="No past Briefs yet. Your first one will appear here after it's sent." />
         </TabsContent>
         <TabsContent value="saved" className="mt-6">

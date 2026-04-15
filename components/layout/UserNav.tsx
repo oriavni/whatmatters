@@ -66,18 +66,20 @@ export function UserNav({ email }: UserNavProps) {
             sideOffset={4}
             className="min-w-56 rounded-lg"
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5">
-                <Avatar className="size-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg text-xs font-medium">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate text-xs text-muted-foreground">
-                  {email}
-                </span>
-              </div>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5">
+                  <Avatar className="size-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg text-xs font-medium">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {email}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
@@ -94,7 +96,7 @@ export function UserNav({ email }: UserNavProps) {
             <DropdownMenuSeparator />
 
             <form action={signout}>
-              <DropdownMenuItem render={<button type="submit" className="w-full" />}>
+              <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
                 <LogOut />
                 Sign out
               </DropdownMenuItem>
