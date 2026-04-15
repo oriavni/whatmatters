@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { inngest } from "@/lib/inngest/client";
 import { config } from "@/lib/config";
+import { processInboundEmail } from "@/lib/ingestion/process-inbound";
 
 // ── Postmark inbound payload shape (relevant fields only) ─────────────────────
 interface PostmarkInboundPayload {
@@ -155,7 +156,13 @@ export async function POST(request: NextRequest) {
     await inngest.send({ name: "email/inbound", data: inboundPayload });
     console.log("[postmark/inbound] inngest.send ok");
   } catch (err) {
-    console.error("[postmark/inbound] inngest.send failed:", err);
+    console.error("[postmark/inbound] inngest.send failed, running inline fallback:", err);
+    try {
+      await processInboundEmail(inboundPayload);
+      console.log("[postmark/inbound] inline fallback ok");
+    } catch (fallbackErr) {
+      console.error("[postmark/inbound] inline fallback also failed:", fallbackErr);
+    }
   }
 
   return NextResponse.json({ ok: true });
