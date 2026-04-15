@@ -69,7 +69,8 @@ export const digestGenerate = inngest.createFunction(
         .eq("is_processed", true)
         .gte("received_at", periodStart)
         .lte("received_at", periodEnd)
-        .order("received_at", { ascending: false });
+        .order("received_at", { ascending: false })
+        .limit(150);
 
       if (error) throw new Error(`load-items: ${error.message}`);
       return (data ?? []).map((r) => r.id);
