@@ -59,7 +59,7 @@ export const rssFetchAll = inngest.createFunction(
           if (feed.items.length === 0) {
             await supabase
               .from("sources")
-              .update({ last_fetched_at: now, error_message: null })
+              .update({ last_fetched_at: now, status: "active", error_message: null })
               .eq("id", source.id);
             return { source_id: source.id, status: "empty" as const };
           }
@@ -81,7 +81,7 @@ export const rssFetchAll = inngest.createFunction(
           if (newItems.length === 0) {
             await supabase
               .from("sources")
-              .update({ last_fetched_at: now, error_message: null })
+              .update({ last_fetched_at: now, status: "active", error_message: null })
               .eq("id", source.id);
             return { source_id: source.id, status: "no-new-items" as const };
           }
