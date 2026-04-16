@@ -73,6 +73,18 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Verify ownership before deleting — same pattern as PATCH.
+  // Without this, Supabase returns no error when 0 rows are deleted,
+  // causing a false 200 when the source belongs to another user.
+  const { data: source } = await supabase
+    .from("sources")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { error } = await supabase
     .from("sources")
     .delete()
