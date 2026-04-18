@@ -184,9 +184,16 @@ function Attribution({ items }: { items: DigestClusterForEmail["items"] }) {
 function Mention({ cluster }: { cluster: DigestClusterForEmail }) {
   const excerpt = cluster.summary ?? cluster.items[0]?.title ?? "";
   const sources = [...new Set(cluster.items.map((i) => i.sourceName))];
+  const sourceUrl = cluster.items[0]?.sourceUrl ?? null;
   return (
     <Text style={s.mention}>
-      <span style={s.mentionTopic}>{cluster.topic}</span>
+      {sourceUrl ? (
+        <Link href={sourceUrl} style={{ ...s.mentionTopic, color: "#222222", textDecoration: "none" }}>
+          {cluster.topic}
+        </Link>
+      ) : (
+        <span style={s.mentionTopic}>{cluster.topic}</span>
+      )}
       {excerpt ? ` — ${excerpt}` : ""}
       {sources.length > 0 && (
         <span style={s.mentionSource}> · {sources.join(", ")}</span>
