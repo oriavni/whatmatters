@@ -139,9 +139,12 @@ export function DeliveryScheduleForm({
           </Select>
         </div>
 
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          {saving ? "Saving…" : "Save"}
-        </Button>
+        <div className="space-y-1.5">
+          <p className="text-xs opacity-0 select-none">Save</p>
+          <Button onClick={handleSave} disabled={saving} size="sm">
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
       </div>
 
       {frequency !== "off" && (

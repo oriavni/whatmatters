@@ -37,7 +37,18 @@ function MentionItem({ cluster }: { cluster: BriefCluster }) {
     <li className="flex items-start gap-2 text-sm">
       <span className="size-1 rounded-full bg-border shrink-0 mt-2" />
       <p className="min-w-0 leading-snug">
-        <span className="font-medium text-foreground">{cluster.topic}</span>
+        {cluster.sourceUrl ? (
+          <a
+            href={cluster.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-foreground hover:underline underline-offset-2"
+          >
+            {cluster.topic}
+          </a>
+        ) : (
+          <span className="font-medium text-foreground">{cluster.topic}</span>
+        )}
         {cluster.summary && (
           <span className="text-muted-foreground"> — {cluster.summary}</span>
         )}
