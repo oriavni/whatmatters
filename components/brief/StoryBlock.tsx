@@ -16,7 +16,7 @@ interface StoryBlockProps {
   digestId: string;
   initialLiked?: boolean;
   initialSaved?: boolean;
-  initialIgnored?: boolean;
+  initialIgnoreLevel?: 0 | 1 | 2 | 3;
 }
 
 export function StoryBlock({
@@ -25,7 +25,7 @@ export function StoryBlock({
   digestId,
   initialLiked = false,
   initialSaved = false,
-  initialIgnored = false,
+  initialIgnoreLevel = 0,
 }: StoryBlockProps) {
   return (
     <Card>
@@ -46,7 +46,7 @@ export function StoryBlock({
             sourceUrl={cluster.sourceUrl}
             initialLiked={initialLiked}
             initialSaved={initialSaved}
-            initialIgnored={initialIgnored}
+            initialIgnoreLevel={initialIgnoreLevel}
           />
         </CardAction>
       </CardHeader>
