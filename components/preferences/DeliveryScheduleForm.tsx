@@ -92,59 +92,58 @@ export function DeliveryScheduleForm({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-3 items-end">
-        {/* Frequency */}
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Frequency</p>
-          <Select value={frequency === "off" ? "daily" : frequency} onValueChange={(v) => v && setFrequency(v)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Day — only for weekly */}
-        {(frequency === "weekly") && (
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-3">
+          {/* Frequency */}
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">Day</p>
-            <Select value={String(day)} onValueChange={(v) => setDay(Number(v))}>
-              <SelectTrigger className="w-36">
+            <p className="text-xs text-muted-foreground">Frequency</p>
+            <Select value={frequency === "off" ? "daily" : frequency} onValueChange={(v) => v && setFrequency(v)}>
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DAYS.map((d) => (
-                  <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Day — only for weekly */}
+          {(frequency === "weekly") && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">Day</p>
+              <Select value={String(day)} onValueChange={(v) => setDay(Number(v))}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DAYS.map((d) => (
+                    <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Time */}
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">Time</p>
+            <Select value={time} onValueChange={(v) => v && setTime(v)}>
+              <SelectTrigger className="w-28">
+                <SelectValue>{formatTime(time)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {TIMES.map((t) => (
+                  <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
-
-        {/* Time */}
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Time</p>
-          <Select value={time} onValueChange={(v) => v && setTime(v)}>
-            <SelectTrigger className="w-28">
-              <SelectValue>{formatTime(time)}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {TIMES.map((t) => (
-                <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <p className="text-xs opacity-0 select-none">Save</p>
-          <Button onClick={handleSave} disabled={saving} size="sm">
-            {saving ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        <Button onClick={handleSave} disabled={saving} size="sm">
+          {saving ? "Saving…" : "Save"}
+        </Button>
       </div>
 
       {frequency !== "off" && (
