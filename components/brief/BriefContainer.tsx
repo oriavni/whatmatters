@@ -23,7 +23,7 @@ interface CurrentResponse {
 interface Interactions {
   liked: Set<string>;
   saved: Set<string>;
-  ignored: Set<string>;
+  ignoreLevels: Map<string, number>; // cluster_id → suppress level (1-3)
 }
 
 interface BriefContainerProps {
@@ -33,18 +33,19 @@ interface BriefContainerProps {
 
 async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interactions> {
   const clusterIds = digest.clusters.map((c) => c.id).join(",");
-  if (!clusterIds) return { liked: new Set(), saved: new Set(), ignored: new Set() };
+  const empty = { liked: new Set<string>(), saved: new Set<string>(), ignoreLevels: new Map<string, number>() };
+  if (!clusterIds) return empty;
   try {
     const res = await fetch(`/api/interactions?cluster_ids=${encodeURIComponent(clusterIds)}`);
-    if (!res.ok) return { liked: new Set(), saved: new Set(), ignored: new Set() };
+    if (!res.ok) return empty;
     const data = await res.json();
     return {
       liked: new Set<string>(data.liked ?? []),
       saved: new Set<string>(data.saved ?? []),
-      ignored: new Set<string>(data.ignored ?? []),
+      ignoreLevels: new Map<string, number>(Object.entries(data.ignoreLevels ?? {})),
     };
   } catch {
-    return { liked: new Set(), saved: new Set(), ignored: new Set() };
+    return empty;
   }
 }
 
@@ -212,7 +213,7 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
               digestId={digest.id}
               initialLiked={interactions?.liked.has(cluster.id) ?? false}
               initialSaved={interactions?.saved.has(cluster.id) ?? false}
-              initialIgnored={interactions?.ignored.has(cluster.id) ?? false}
+              initialIgnoreLevel={(interactions?.ignoreLevels.get(cluster.id) ?? 0) as 0 | 1 | 2 | 3}
             />
           ))}
         </div>

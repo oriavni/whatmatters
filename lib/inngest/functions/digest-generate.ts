@@ -118,8 +118,77 @@ export const digestGenerate = inngest.createFunction(
     // ── Step 4: Score clusters (deterministic) ────────────────────────────
     await step.run("score", () => scoreClusters(user_id, clusterIds));
 
+    // ── Step 4.5: Apply topic suppressions ────────────────────────────────
+    // Remove clusters whose topic the user has temporarily suppressed.
+    // Also decrements digests_remaining so the suppression expires automatically.
+    const activeClusterIds = await step.run("apply-suppressions", async () => {
+      const supabase = createServiceClient();
+
+      // Check for any active suppressions for this user
+      const { data: suppressions } = await supabase
+        .from("topic_suppressions")
+        .select("topic, digests_remaining")
+        .eq("user_id", user_id)
+        .gt("digests_remaining", 0);
+
+      if (!suppressions || suppressions.length === 0) return clusterIds;
+
+      // Resolve cluster topics for this digest
+      const { data: clusters } = await supabase
+        .from("topic_clusters")
+        .select("id, topic")
+        .in("id", clusterIds);
+
+      if (!clusters || clusters.length === 0) return clusterIds;
+
+      const suppressedTopics = new Set(
+        suppressions.map((s) => (s.topic as string).toLowerCase())
+      );
+
+      // Identify which clusters match a suppressed topic (case-insensitive exact match)
+      const suppressedClusterIds = clusters
+        .filter((c) => suppressedTopics.has((c.topic as string).toLowerCase()))
+        .map((c) => c.id as string);
+
+      if (suppressedClusterIds.length > 0) {
+        await supabase
+          .from("topic_clusters")
+          .delete()
+          .in("id", suppressedClusterIds);
+      }
+
+      // Decrement digests_remaining for all active suppressions;
+      // delete rows that have reached zero.
+      for (const s of suppressions) {
+        const remaining = (s.digests_remaining as number) - 1;
+        if (remaining <= 0) {
+          await supabase
+            .from("topic_suppressions")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("topic", s.topic);
+        } else {
+          await supabase
+            .from("topic_suppressions")
+            .update({ digests_remaining: remaining, updated_at: new Date().toISOString() })
+            .eq("user_id", user_id)
+            .eq("topic", s.topic);
+        }
+      }
+
+      return clusterIds.filter((id) => !suppressedClusterIds.includes(id));
+    });
+
+    if (activeClusterIds.length === 0) {
+      await step.run("mark-failed-no-active-clusters", async () => {
+        const supabase = createServiceClient();
+        await supabase.from("digests").update({ status: "failed" }).eq("id", digestId);
+      });
+      return { status: "no-clusters-after-suppression", digest_id: digestId };
+    }
+
     // ── Step 5: Synthesize top 8 clusters (LLM, sequential) ──────────────
-    await step.run("synthesize", () => synthesizeClusters(clusterIds));
+    await step.run("synthesize", () => synthesizeClusters(activeClusterIds));
 
     // ── Step 6: Compose digest body (deterministic) ───────────────────────
     await step.run("compose", () => composeDigest(user_id, digestId));
@@ -130,6 +199,6 @@ export const digestGenerate = inngest.createFunction(
       data: { digest_id: digestId, user_id },
     });
 
-    return { status: "ok", digest_id: digestId, cluster_count: clusterIds.length };
+    return { status: "ok", digest_id: digestId, cluster_count: activeClusterIds.length };
   }
 );

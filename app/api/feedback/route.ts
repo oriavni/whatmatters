@@ -68,39 +68,58 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Ignore topic: toggle skip in feedback_events ──────────────────────────
-  // Source of truth is feedback_events (type='skip'), same pattern as Like.
-  // user_preferences.ignored_topics does not exist in the current schema so
-  // that path is removed entirely.
-  if (body.event_type === "ignore_topic" && body.cluster_id) {
-    const { count } = await service
-      .from("feedback_events")
-      .select("*", { count: "exact", head: true })
+  // ── Ignore topic: multi-state suppression (1 → 2 → 3 → 0 → repeat) ──────
+  //
+  // Source of truth for the active suppression window is topic_suppressions.
+  // feedback_events receives an immutable log entry on every click for future
+  // recommendation work (suppress_level in metadata).
+  //
+  // Cycle: none→1 digest, 1→2 digests, 2→3 digests, 3→reset (0).
+  if (body.event_type === "ignore_topic" && body.cluster_id && body.topic_label) {
+    // Read current suppress level from the operational table
+    const { data: existing } = await service
+      .from("topic_suppressions")
+      .select("suppress_level")
       .eq("user_id", user.id)
-      .eq("cluster_id", body.cluster_id)
-      .eq("type", "skip");
+      .eq("topic", body.topic_label)
+      .maybeSingle();
 
-    if (count && count > 0) {
-      // Already ignored → un-ignore: delete ALL skip rows for this cluster
+    const currentLevel = (existing?.suppress_level as number | null) ?? 0;
+    const nextLevel = currentLevel < 3 ? currentLevel + 1 : 0;
+
+    if (nextLevel === 0) {
+      // Reset: remove suppression
       await service
-        .from("feedback_events")
+        .from("topic_suppressions")
         .delete()
         .eq("user_id", user.id)
-        .eq("cluster_id", body.cluster_id)
-        .eq("type", "skip");
-      return NextResponse.json({ ok: true, active: false });
+        .eq("topic", body.topic_label);
     } else {
-      // Not ignored → ignore
-      const { error } = await service.from("feedback_events").insert({
-        user_id: user.id,
-        type: "skip",
-        digest_id: body.digest_id ?? null,
-        cluster_id: body.cluster_id,
-        raw_item_id: body.raw_item_id ?? null,
-      });
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json({ ok: true, active: true });
+      // Upsert: set new level + reset countdown
+      await service.from("topic_suppressions").upsert(
+        {
+          user_id: user.id,
+          topic: body.topic_label,
+          source_cluster_id: body.cluster_id,
+          suppress_level: nextLevel,
+          digests_remaining: nextLevel,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,topic" }
+      );
     }
+
+    // Always log to feedback_events — immutable audit trail for future ML
+    await service.from("feedback_events").insert({
+      user_id: user.id,
+      type: "skip",
+      digest_id: body.digest_id ?? null,
+      cluster_id: body.cluster_id,
+      raw_item_id: body.raw_item_id ?? null,
+      metadata: { suppress_level: nextLevel, topic: body.topic_label },
+    });
+
+    return NextResponse.json({ ok: true, suppress_level: nextLevel });
   }
 
   // ── Primary: record feedback_events (non-toggle events) ──────────────────

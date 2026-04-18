@@ -24,7 +24,8 @@ interface StoryBlockActionsProps {
   sourceUrl: string | null;
   initialLiked?: boolean;
   initialSaved?: boolean;
-  initialIgnored?: boolean;
+  /** 0 = not ignored, 1-3 = suppressed for N upcoming digests */
+  initialIgnoreLevel?: 0 | 1 | 2 | 3;
 }
 
 async function sendFeedback(
@@ -32,7 +33,7 @@ async function sendFeedback(
   digestId: string,
   clusterId: string,
   extra?: Record<string, string>
-): Promise<{ ok: boolean; active?: boolean }> {
+): Promise<{ ok: boolean; active?: boolean; suppress_level?: number }> {
   try {
     const res = await fetch("/api/feedback", {
       method: "POST",
@@ -50,24 +51,42 @@ async function sendFeedback(
       return { ok: false };
     }
     const data = await res.json();
-    return { ok: true, active: data.active };
+    return { ok: true, active: data.active, suppress_level: data.suppress_level };
   } catch {
     toast.error("Could not save feedback");
     return { ok: false };
   }
 }
 
+// Inline style colors for the three ignore levels — bypasses Tailwind scanning.
+const IGNORE_STYLES: Record<1 | 2 | 3, React.CSSProperties> = {
+  1: { color: "hsl(38 92% 50%)" },  // amber  — "snooze 1"
+  2: { color: "hsl(20 90% 52%)" },  // orange — "snooze 2"
+  3: { color: "hsl(0 72% 51%)" },   // red    — "snooze 3"
+};
+
+const IGNORE_TOASTS: Record<0 | 1 | 2 | 3, string> = {
+  0: "Topic un-ignored",
+  1: "Ignoring similar items for the next digest",
+  2: "Ignoring similar items for the next 2 digests",
+  3: "Ignoring similar items for the next 3 digests",
+};
+
+const IGNORE_TOOLTIPS: Record<0 | 1 | 2 | 3, string> = {
+  0: "Ignore topic",
+  1: "Ignored for 1 digest — click to extend",
+  2: "Ignored for 2 digests — click to extend",
+  3: "Ignored for 3 digests — click to reset",
+};
+
 /**
- * Like    — toggle: first click = like, second click = unlike
- * Save    — toggle: click to save, click again to unsave
- * Ignore  — toggle: first click = ignore topic (BellOff), second click = un-ignore (Bell)
+ * Like    — toggle: like / unlike. Persisted to DB; no ranking effect yet.
+ * Save    — toggle: save / unsave. Appears in Archive.
+ * Ignore  — 4-state cycle (0 → 1 → 2 → 3 → 0): suppresses the topic from
+ *           the next N digests. All clicks are stored for future ML.
  *
- * Initial state (liked/saved/ignored) is passed from the parent which fetches
- * it from /api/interactions on page load — so state is correct on first render,
- * after refresh, and after navigating away and back.
- *
- * Active state uses inline style with CSS variables so it is guaranteed to
- * reach the SVG element regardless of Tailwind scan / className merge chain.
+ * Initial state is passed from the parent which fetches /api/interactions on
+ * page load, so state is correct on first render and after navigation.
  */
 export function StoryBlockActions({
   digestId,
@@ -76,11 +95,11 @@ export function StoryBlockActions({
   sourceUrl,
   initialLiked = false,
   initialSaved = false,
-  initialIgnored = false,
+  initialIgnoreLevel = 0,
 }: StoryBlockActionsProps) {
   const [liked, setLiked] = useState(initialLiked);
   const [saved, setSaved] = useState(initialSaved);
-  const [ignored, setIgnored] = useState(initialIgnored);
+  const [ignoreLevel, setIgnoreLevel] = useState<0 | 1 | 2 | 3>(initialIgnoreLevel);
 
   async function handleLike() {
     const next = !liked;
@@ -112,27 +131,26 @@ export function StoryBlockActions({
   }
 
   async function handleIgnore() {
-    const next = !ignored;
-    setIgnored(next); // optimistic
+    // Optimistic: cycle to next level locally
+    const nextLevel = (ignoreLevel < 3 ? ignoreLevel + 1 : 0) as 0 | 1 | 2 | 3;
+    setIgnoreLevel(nextLevel);
+
     const result = await sendFeedback("ignore_topic", digestId, clusterId, {
       topic_label: topicLabel,
     });
+
     if (!result.ok) {
-      setIgnored(!next); // rollback
-    } else {
-      const isNowIgnored = result.active !== undefined ? result.active : next;
-      setIgnored(isNowIgnored);
-      if (isNowIgnored) {
-        toast.success("Topic ignored — we'll show it less often");
-      } else {
-        toast.success("Topic un-ignored");
-      }
+      setIgnoreLevel(ignoreLevel); // rollback to previous
+      return;
     }
+
+    // Sync with server's actual level (server owns the cycle)
+    const confirmedLevel = (result.suppress_level ?? nextLevel) as 0 | 1 | 2 | 3;
+    setIgnoreLevel(confirmedLevel);
+    toast.success(IGNORE_TOASTS[confirmedLevel]);
   }
 
-  // Active color via inline CSS variable — bypasses Tailwind scanning and
-  // the cloneElement/mergeProps chain in TooltipTrigger.
-  // Like gets fill too so filled-vs-outline is unambiguous (no icon swap available).
+  // Active style for like/save — foreground fill/stroke
   const activeStyle = { color: "var(--color-foreground)" } as const;
   const activeFilledStyle = { color: "var(--color-foreground)", fill: "var(--color-foreground)" } as const;
 
@@ -153,14 +171,29 @@ export function StoryBlockActions({
         activeStyle={activeStyle}
         onClick={handleSave}
       />
-      <ActionIcon
-        icon={Bell}
-        activeIcon={BellOff}
-        label={ignored ? "Un-ignore topic" : "Ignore topic"}
-        active={ignored}
-        activeStyle={activeStyle}
-        onClick={handleIgnore}
-      />
+      {/* Ignore: BellOff when any level is active, coloured by level */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-foreground"
+            />
+          }
+          onClick={handleIgnore}
+        >
+          {ignoreLevel > 0 ? (
+            <BellOff
+              className="size-3.5"
+              style={IGNORE_STYLES[ignoreLevel as 1 | 2 | 3]}
+            />
+          ) : (
+            <Bell className="size-3.5" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{IGNORE_TOOLTIPS[ignoreLevel]}</TooltipContent>
+      </Tooltip>
       {sourceUrl && (
         <Tooltip>
           <TooltipTrigger

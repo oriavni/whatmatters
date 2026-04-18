@@ -346,6 +346,7 @@ export type Database = {
           cluster_id: string | null;
           raw_item_id: string | null;
           type: "thumbs_up" | "thumbs_down" | "skip" | "save";
+          metadata: Json | null;
           created_at: string;
         };
         Insert: {
@@ -355,6 +356,7 @@ export type Database = {
           cluster_id?: string | null;
           raw_item_id?: string | null;
           type: "thumbs_up" | "thumbs_down" | "skip" | "save";
+          metadata?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -364,6 +366,7 @@ export type Database = {
           cluster_id?: string | null;
           raw_item_id?: string | null;
           type?: "thumbs_up" | "thumbs_down" | "skip" | "save";
+          metadata?: Json | null;
           created_at?: string;
         };
         Relationships: [];
@@ -467,6 +470,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      topic_suppressions: {
+        Row: {
+          id: string;
+          user_id: string;
+          topic: string;
+          source_cluster_id: string | null;
+          suppress_level: number;
+          digests_remaining: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          topic: string;
+          source_cluster_id?: string | null;
+          suppress_level: number;
+          digests_remaining: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          topic?: string;
+          source_cluster_id?: string | null;
+          suppress_level?: number;
+          digests_remaining?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -500,3 +536,4 @@ export type FeedbackEventRow = Database["public"]["Tables"]["feedback_events"]["
 export type ReplyActionRow = Database["public"]["Tables"]["reply_actions"]["Row"];
 export type SavedItemRow = Database["public"]["Tables"]["saved_items"]["Row"];
 export type JobLogRow = Database["public"]["Tables"]["job_logs"]["Row"];
+export type TopicSuppressionRow = Database["public"]["Tables"]["topic_suppressions"]["Row"];
