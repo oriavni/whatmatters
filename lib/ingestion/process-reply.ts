@@ -255,6 +255,7 @@ export async function processReplyEmail({
         source: parsed.source,
         schedule: parsed.schedule,
       }),
+      via: "inline",
       parsed_at: new Date().toISOString(),
     });
   }

@@ -380,6 +380,7 @@ export type Database = {
           raw_item_id: string | null;
           action: "expand" | "save" | "skip" | "share" | "unsubscribe";
           raw_reply: string | null;
+          via: string | null;
           parsed_at: string;
           created_at: string;
         };
@@ -391,6 +392,7 @@ export type Database = {
           raw_item_id?: string | null;
           action: "expand" | "save" | "skip" | "share" | "unsubscribe";
           raw_reply?: string | null;
+          via?: string | null;
           parsed_at?: string;
           created_at?: string;
         };
@@ -402,6 +404,7 @@ export type Database = {
           raw_item_id?: string | null;
           action?: "expand" | "save" | "skip" | "share" | "unsubscribe";
           raw_reply?: string | null;
+          via?: string | null;
           parsed_at?: string;
           created_at?: string;
         };
@@ -467,6 +470,27 @@ export type Database = {
           error?: string | null;
           metadata?: Json;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      system_flags: {
+        Row: {
+          key: string;
+          value: boolean;
+          description: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value?: boolean;
+          description?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: boolean;
+          description?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -574,3 +598,4 @@ export type SavedItemRow = Database["public"]["Tables"]["saved_items"]["Row"];
 export type JobLogRow = Database["public"]["Tables"]["job_logs"]["Row"];
 export type TopicSuppressionRow = Database["public"]["Tables"]["topic_suppressions"]["Row"];
 export type PricingConfigRow = Database["public"]["Tables"]["pricing_config"]["Row"];
+export type SystemFlagRow = Database["public"]["Tables"]["system_flags"]["Row"];

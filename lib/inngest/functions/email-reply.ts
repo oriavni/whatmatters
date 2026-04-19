@@ -299,6 +299,7 @@ export const emailReplyParse = inngest.createFunction(
             source: parsed.source,
             schedule: parsed.schedule,
           }),
+          via: "inngest",
           parsed_at: new Date().toISOString(),
         });
       }

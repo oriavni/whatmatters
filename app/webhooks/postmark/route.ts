@@ -55,6 +55,18 @@ export async function POST(request: NextRequest) {
   // ── 3. Route: digest reply? ────────────────────────────────────────────────
   const replyMatch = REPLY_PATTERN.exec(toAddress);
   if (replyMatch) {
+    // Check replies_disabled system flag
+    const supabaseForFlag = createServiceClient();
+    const { data: flagRow } = await supabaseForFlag
+      .from("system_flags")
+      .select("value")
+      .eq("key", "replies_disabled")
+      .maybeSingle();
+    if (flagRow?.value === true) {
+      console.log("[postmark/reply] replies_disabled flag is set — dropping reply");
+      return NextResponse.json({ ok: true });
+    }
+
     const digestId = replyMatch[1];
     const replyPayload = {
       digest_id: digestId,
