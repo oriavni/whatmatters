@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { getPricingConfig } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "Pricing — WhatMatters" };
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 const FEATURES = [
   "Your own inbound email address for newsletters",

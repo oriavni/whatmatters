@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getPricingConfig } from "@/lib/pricing";
 
-export const revalidate = 3600; // re-fetch pricing at most once per hour
+export const dynamic = "force-dynamic"; // pricing data must always be fresh
 
 const steps = [
   {
