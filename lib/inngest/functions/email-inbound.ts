@@ -16,6 +16,7 @@ import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { identifySource } from "@/lib/ingestion/identify-source";
 import { cleanHtml, excerptText, truncateText } from "@/lib/ingestion/clean-html";
+import { forwardConfirmationEmail } from "@/lib/ingestion/forward-confirmation";
 
 interface EmailInboundEvent {
   raw_item_id: string;
@@ -57,23 +58,41 @@ export const emailInbound = inngest.createFunction(
       identifySource(user_id, sender_email, sender_name)
     );
 
-    // ── Step 3: Resolve body text ─────────────────────────────────────────────
-    // Postmark populates body_text from its own TextBody extraction.
-    // Only parse stored HTML as a fallback for HTML-only newsletters.
+    // ── Step 3: Resolve body text + forward confirmation emails ──────────────
     const bodyText = await step.run("resolve-body-text", async () => {
-      if (rawItem.body_text && rawItem.body_text.trim().length > 50) {
-        return rawItem.body_text;
-      }
+      const supabase = createServiceClient();
+      let text = rawItem.body_text ?? "";
+      let rawHtml: string | null = null;
+
       if (rawItem.raw_html_path) {
-        const supabase = createServiceClient();
         const { data, error } = await supabase.storage
           .from("raw-emails")
           .download(rawItem.raw_html_path);
         if (!error && data) {
-          return cleanHtml(await data.text());
+          rawHtml = await data.text();
+          if (!text || text.trim().length <= 50) {
+            text = cleanHtml(rawHtml);
+          }
         }
       }
-      return rawItem.body_text ?? "";
+
+      // Forward confirmation / double opt-in emails to user's real inbox
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("email")
+        .eq("id", user_id)
+        .single();
+      if (userRow?.email) {
+        await forwardConfirmationEmail({
+          subject: rawItem.subject,
+          bodyText: text,
+          rawHtml,
+          senderName: sender_name,
+          userEmail: userRow.email,
+        }).catch((err) => console.warn("[email-inbound] confirmation forward failed:", err));
+      }
+
+      return text;
     });
 
     // ── Step 4: Deterministic excerpt (no LLM) ────────────────────────────────

@@ -11,6 +11,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { identifySource } from "@/lib/ingestion/identify-source";
 import { cleanHtml, excerptText, truncateText } from "@/lib/ingestion/clean-html";
+import { forwardConfirmationEmail } from "@/lib/ingestion/forward-confirmation";
 
 export async function processInboundEmail({
   raw_item_id,
@@ -24,6 +25,13 @@ export async function processInboundEmail({
   sender_name: string;
 }): Promise<void> {
   const supabase = createServiceClient();
+
+  // Look up the user's real email for confirmation forwarding
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", user_id)
+    .single();
 
   // 1. Load raw item
   const { data: rawItem, error: loadError } = await supabase
@@ -47,15 +55,28 @@ export async function processInboundEmail({
 
   // 3. Resolve body text
   let bodyText = rawItem.body_text ?? "";
-  if (!bodyText || bodyText.trim().length <= 50) {
-    if (rawItem.raw_html_path) {
-      const { data, error } = await supabase.storage
-        .from("raw-emails")
-        .download(rawItem.raw_html_path);
-      if (!error && data) {
-        bodyText = cleanHtml(await data.text());
+  let rawHtml: string | null = null;
+  if (rawItem.raw_html_path) {
+    const { data, error } = await supabase.storage
+      .from("raw-emails")
+      .download(rawItem.raw_html_path);
+    if (!error && data) {
+      rawHtml = await data.text();
+      if (!bodyText || bodyText.trim().length <= 50) {
+        bodyText = cleanHtml(rawHtml);
       }
     }
+  }
+
+  // 3b. Forward confirmation emails to user's real inbox
+  if (userRow?.email) {
+    forwardConfirmationEmail({
+      subject: rawItem.subject,
+      bodyText,
+      rawHtml,
+      senderName: sender_name,
+      userEmail: userRow.email,
+    }).catch((err) => console.warn("[process-inbound] confirmation forward failed:", err));
   }
 
   // 4. Build excerpt (no LLM)
