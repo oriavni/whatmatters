@@ -16,6 +16,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { inngest } from "@/lib/inngest/client";
 import { config } from "@/lib/config";
 import { processInboundEmail } from "@/lib/ingestion/process-inbound";
+import { processReplyEmail } from "@/lib/ingestion/process-reply";
 
 // ── Postmark inbound payload shape (relevant fields only) ─────────────────────
 interface PostmarkInboundPayload {
@@ -66,7 +67,13 @@ export async function POST(request: NextRequest) {
       await inngest.send({ name: "email/reply.parse", data: replyPayload });
       console.log("[postmark/reply] inngest.send ok");
     } catch (err) {
-      console.error("[postmark/reply] inngest.send failed:", err);
+      console.error("[postmark/reply] inngest.send failed, running inline fallback:", err);
+      try {
+        await processReplyEmail(replyPayload);
+        console.log("[postmark/reply] inline fallback ok");
+      } catch (fallbackErr) {
+        console.error("[postmark/reply] inline fallback also failed:", fallbackErr);
+      }
     }
     return NextResponse.json({ ok: true });
   }
