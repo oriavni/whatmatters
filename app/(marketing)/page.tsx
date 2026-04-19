@@ -9,6 +9,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { getPricingConfig } from "@/lib/pricing";
+
+export const revalidate = 3600; // re-fetch pricing at most once per hour
 
 const steps = [
   {
@@ -28,7 +31,16 @@ const steps = [
   },
 ];
 
-export default function LandingPage() {
+const FEATURES = [
+  "Your own inbound email address",
+  "Unlimited newsletter sources",
+  "Daily or weekly digest, on your schedule",
+  "Reply to teach — ignore, save, or get more on any topic",
+  "No ads, no tracking",
+];
+
+export default async function LandingPage() {
+  const pricing = await getPricingConfig();
   return (
     <div className="max-w-4xl mx-auto px-6">
       {/* Hero */}
@@ -82,6 +94,54 @@ export default function LandingPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-20 border-t space-y-10">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-semibold">Simple pricing</h2>
+          <p className="text-muted-foreground text-sm">
+            {pricing.trial_days}-day free trial. No credit card required.
+          </p>
+        </div>
+
+        <div className="max-w-sm mx-auto rounded-xl border bg-card p-8 space-y-6">
+          {pricing.deal_active && (
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+              {pricing.deal_label}
+            </Badge>
+          )}
+
+          <div className="text-center">
+            <div className="flex items-end justify-center gap-1">
+              <span className="text-4xl font-semibold">
+                ${pricing.deal_active ? pricing.deal_price_monthly : pricing.price_monthly}
+              </span>
+              <span className="text-muted-foreground mb-1.5 text-sm">/month</span>
+            </div>
+            {pricing.deal_active && (
+              <p className="text-sm text-muted-foreground mt-1">
+                <span className="line-through">${pricing.price_monthly}/month</span>
+                {pricing.deal_slots_remaining > 0 && (
+                  <span className="ml-2">{pricing.deal_slots_remaining} spots left</span>
+                )}
+              </p>
+            )}
+          </div>
+
+          <ul className="space-y-2">
+            {FEATURES.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm">
+                <span className="text-foreground mt-0.5">✓</span>
+                <span className="text-muted-foreground">{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full text-center")}>
+            Start {pricing.trial_days}-day free trial
+          </Link>
         </div>
       </section>
 

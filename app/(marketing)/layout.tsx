@@ -16,6 +16,9 @@ export default function MarketingLayout({
             <a href="#how-it-works" className="hover:text-foreground transition-colors">
               How it works
             </a>
+            <Link href="/pricing" className="hover:text-foreground transition-colors">
+              Pricing
+            </Link>
             <a href="/login" className="hover:text-foreground transition-colors">
               Sign in
             </a>
