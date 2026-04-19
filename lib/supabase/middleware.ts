@@ -42,10 +42,22 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone();
   const isAppRoute = url.pathname.startsWith("/app");
   const isAdminRoute = url.pathname.startsWith("/admin");
+  const isAdminLoginRoute = url.pathname === "/admin/login";
   const isAuthRoute =
     url.pathname.startsWith("/login") || url.pathname.startsWith("/signup");
 
-  if (!user && (isAppRoute || isAdminRoute)) {
+  // Admin routes: cookie-based auth (ADMIN_SECRET), not Supabase auth
+  if (isAdminRoute && !isAdminLoginRoute) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminToken || !adminSecret || adminToken !== adminSecret) {
+      url.pathname = "/admin/login";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // App routes: Supabase auth
+  if (!user && isAppRoute) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }

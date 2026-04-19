@@ -470,6 +470,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      pricing_config: {
+        Row: {
+          id: string;
+          price_monthly: number;
+          trial_days: number;
+          deal_active: boolean;
+          deal_label: string;
+          deal_price_monthly: number;
+          deal_slots_total: number;
+          deal_slots_remaining: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          price_monthly?: number;
+          trial_days?: number;
+          deal_active?: boolean;
+          deal_label?: string;
+          deal_price_monthly?: number;
+          deal_slots_total?: number;
+          deal_slots_remaining?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          price_monthly?: number;
+          trial_days?: number;
+          deal_active?: boolean;
+          deal_label?: string;
+          deal_price_monthly?: number;
+          deal_slots_total?: number;
+          deal_slots_remaining?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       topic_suppressions: {
         Row: {
           id: string;
@@ -537,3 +573,4 @@ export type ReplyActionRow = Database["public"]["Tables"]["reply_actions"]["Row"
 export type SavedItemRow = Database["public"]["Tables"]["saved_items"]["Row"];
 export type JobLogRow = Database["public"]["Tables"]["job_logs"]["Row"];
 export type TopicSuppressionRow = Database["public"]["Tables"]["topic_suppressions"]["Row"];
+export type PricingConfigRow = Database["public"]["Tables"]["pricing_config"]["Row"];
