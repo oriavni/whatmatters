@@ -12,6 +12,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { identifySource } from "@/lib/ingestion/identify-source";
 import { cleanHtml, excerptText, truncateText } from "@/lib/ingestion/clean-html";
 import { forwardConfirmationEmail } from "@/lib/ingestion/forward-confirmation";
+import { detectPromotional } from "@/lib/ingestion/detect-promotional";
 
 export async function processInboundEmail({
   raw_item_id,
@@ -84,11 +85,16 @@ export async function processInboundEmail({
   const summary = excerptText(source, 200) ?? truncateText(source, 200) ?? null;
 
   // 5. Persist
+  const isPromotional = detectPromotional(rawItem.subject, bodyText, sender_email);
+  if (isPromotional) {
+    console.log("[process-inbound] flagged as promotional:", rawItem.subject);
+  }
+
   const now = new Date().toISOString();
   await Promise.all([
     supabase
       .from("raw_items")
-      .update({ source_id: sourceId, body_text: bodyText || null, summary, is_processed: true })
+      .update({ source_id: sourceId, body_text: bodyText || null, summary, is_processed: true, is_promotional: isPromotional })
       .eq("id", raw_item_id),
     supabase
       .from("sources")

@@ -151,6 +151,7 @@ export type Database = {
           body_text: string | null;
           summary: string | null;
           is_processed: boolean;
+          is_promotional: boolean;
           metadata: Json;
           created_at: string;
         };
@@ -167,6 +168,7 @@ export type Database = {
           body_text?: string | null;
           summary?: string | null;
           is_processed?: boolean;
+          is_promotional?: boolean;
           metadata?: Json;
           created_at?: string;
         };

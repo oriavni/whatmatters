@@ -67,6 +67,7 @@ export const digestGenerate = inngest.createFunction(
         .select("id")
         .eq("user_id", user_id)
         .eq("is_processed", true)
+        .eq("is_promotional", false)
         .gte("received_at", periodStart)
         .lte("received_at", periodEnd)
         .order("received_at", { ascending: false })

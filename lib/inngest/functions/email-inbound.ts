@@ -17,6 +17,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { identifySource } from "@/lib/ingestion/identify-source";
 import { cleanHtml, excerptText, truncateText } from "@/lib/ingestion/clean-html";
 import { forwardConfirmationEmail } from "@/lib/ingestion/forward-confirmation";
+import { detectPromotional } from "@/lib/ingestion/detect-promotional";
 
 interface EmailInboundEvent {
   raw_item_id: string;
@@ -111,6 +112,11 @@ export const emailInbound = inngest.createFunction(
       const supabase = createServiceClient();
       const now = new Date().toISOString();
 
+      const isPromotional = detectPromotional(rawItem.subject, bodyText, sender_email);
+      if (isPromotional) {
+        console.log("[email-inbound] flagged as promotional:", rawItem.subject);
+      }
+
       await Promise.all([
         supabase
           .from("raw_items")
@@ -119,6 +125,7 @@ export const emailInbound = inngest.createFunction(
             body_text: bodyText || null,
             summary,
             is_processed: true,
+            is_promotional: isPromotional,
           })
           .eq("id", raw_item_id),
 
