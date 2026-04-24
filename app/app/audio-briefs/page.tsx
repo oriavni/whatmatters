@@ -1,6 +1,7 @@
 /**
  * Audio Briefs page — premium only.
- * Lists all generated audio briefs for the current user.
+ * Shows all recent digests: ones with audio get a Play button,
+ * ones without get a Generate button.
  * Free users see a paywall.
  */
 import type { Metadata } from "next";
@@ -9,6 +10,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { isUserPremium, AUDIO_MONTHLY_CAP, getMonthlyAudioCount } from "@/lib/audio/premium";
 import Link from "next/link";
 import { Headphones, Lock } from "lucide-react";
+import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
 
 export const metadata: Metadata = { title: "Audio Briefs" };
 
@@ -43,23 +45,30 @@ export default async function AudioBriefsPage() {
   }
 
   const serviceSupabase = createServiceClient();
-  const [{ data: audioRows }, monthlyCount] = await Promise.all([
+
+  // Load recent sent/ready digests + existing audio rows in parallel
+  const [{ data: recentDigests }, { data: audioRows }, monthlyCount] = await Promise.all([
+    serviceSupabase
+      .from("digests")
+      .select("id, subject, period_end, status")
+      .eq("user_id", user.id)
+      .in("status", ["sent", "ready"])
+      .order("period_end", { ascending: false })
+      .limit(20),
     serviceSupabase
       .from("audio_digests")
-      .select("id, digest_id, status, duration_sec, file_size_bytes, created_at, error_message")
+      .select("id, digest_id, status, created_at, error_message")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50),
+      .order("created_at", { ascending: false }),
     getMonthlyAudioCount(user.id),
   ]);
 
-  // Load digest subjects for display
-  const digestIds = (audioRows ?? []).map((r) => r.digest_id);
-  const { data: digests } = digestIds.length > 0
-    ? await serviceSupabase.from("digests").select("id, subject, period_end").in("id", digestIds)
-    : { data: [] };
+  // Build a map: digest_id → audio row
+  const audioByDigestId = new Map(
+    (audioRows ?? []).map((r) => [r.digest_id, r])
+  );
 
-  const digestById = new Map((digests ?? []).map((d) => [d.id, d]));
+  const digests = recentDigests ?? [];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -73,45 +82,44 @@ export default async function AudioBriefsPage() {
         </span>
       </div>
 
-      {(audioRows ?? []).length === 0 ? (
+      {digests.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Headphones className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No audio briefs yet.</p>
-          <p className="text-sm mt-1">
-            Open a brief and tap <strong>Listen</strong> to generate your first one.
-          </p>
+          <p>No briefs yet.</p>
+          <p className="text-sm mt-1">Your digests will appear here once generated.</p>
         </div>
       ) : (
         <div className="divide-y">
-          {(audioRows ?? []).map((row) => {
-            const digest = digestById.get(row.digest_id);
-            const date = new Date(row.created_at).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
+          {digests.map((digest) => {
+            const audio = audioByDigestId.get(digest.id);
+            const date = new Date(digest.period_end ?? "").toLocaleDateString("en-US", {
+              weekday: "short", month: "short", day: "numeric",
             });
 
             return (
-              <div key={row.id} className="py-4 flex items-center justify-between gap-4">
+              <div key={digest.id} className="py-4 flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-sm">
-                    {digest?.subject ?? "Brief"}
-                  </p>
+                  <p className="font-medium truncate text-sm">{digest.subject ?? "Brief"}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{date}</p>
                 </div>
+
                 <div className="flex items-center gap-3 shrink-0">
-                  {row.status === "completed" && (
+                  {!audio && (
+                    <GenerateAudioButton digestId={digest.id} />
+                  )}
+                  {audio?.status === "completed" && (
                     <Link
-                      href={`/app/audio-briefs/${row.digest_id}`}
-                      className="text-sm px-3 py-1 rounded-md bg-foreground text-background font-medium"
+                      href={`/app/audio-briefs/${digest.id}`}
+                      className="text-sm px-3 py-1.5 rounded-md bg-foreground text-background font-medium"
                     >
                       ▶ Play
                     </Link>
                   )}
-                  {(row.status === "pending" || row.status === "generating") && (
+                  {(audio?.status === "pending" || audio?.status === "generating") && (
                     <span className="text-xs text-muted-foreground animate-pulse">Generating…</span>
                   )}
-                  {row.status === "failed" && (
-                    <span className="text-xs text-destructive">Failed</span>
+                  {audio?.status === "failed" && (
+                    <GenerateAudioButton digestId={digest.id} label="Retry" />
                   )}
                 </div>
               </div>
