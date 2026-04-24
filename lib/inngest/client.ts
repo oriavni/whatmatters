@@ -1,10 +1,11 @@
 /**
  * Inngest client — shared across all Inngest functions.
- * TODO (Prompt 5+): Wire real event key from config once Inngest is fully set up.
+ * isDev is explicitly tied to NODE_ENV so production deployments
+ * always run in cloud mode and sign their introspection responses.
  */
 import { Inngest } from "inngest";
 
 export const inngest = new Inngest({
   id: "whatmatters",
-  // eventKey is set via INNGEST_EVENT_KEY env var automatically by the SDK
+  isDev: process.env.NODE_ENV !== "production",
 });
