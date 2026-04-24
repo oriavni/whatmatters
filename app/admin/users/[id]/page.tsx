@@ -7,6 +7,7 @@ import { ForceGenerateButton } from "@/components/admin/ForceGenerateButton";
 import { ResetPreferencesButton } from "@/components/admin/ResetPreferencesButton";
 import { PlanSelect } from "@/components/admin/PlanSelect";
 import { SimulateReplyForm } from "@/components/admin/SimulateReplyForm";
+import { PremiumToggle } from "@/components/admin/PremiumToggle";
 
 function formatDate(d: string | null | undefined) {
   if (!d) return "—";
@@ -100,6 +101,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
             <p className="text-xs text-muted-foreground mt-1">Joined {formatDate(user.created_at)}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <PremiumToggle userId={user.id} isPremium={user.is_premium_override ?? false} />
             <PlanSelect userId={user.id} currentPlan={plan} />
             <ForceGenerateButton userId={user.id} />
             <ResetPreferencesButton userId={user.id} />
