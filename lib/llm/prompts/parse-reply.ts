@@ -44,7 +44,7 @@ SUPPORTED INTENTS:
   change_schedule  — user wants to change delivery time or frequency (e.g. "switch to daily", "send at 9am", "every monday")
   read_now         — user wants a fresh digest generated right now (e.g. "read now", "give me today's brief", "refresh")
   mute_source      — user wants to stop seeing content from a source (e.g. "mute TechCrunch", "stop sending Bloomberg")
-  audio_brief      — user wants to listen to an audio version of the digest (e.g. "audio", "listen", "podcast this", "read it to me", "האזן", "הקרא לי")
+  audio_brief      — user wants to listen to an audio version of the digest (e.g. "audio", "listen", "podcast this", "read it to me", "האזן", "הקרא לי", "לשמוע", "תשמיע לי", "תקרא לי", "podcast")
 
 RULES:
   - Set confidence to "high" when the intent is unambiguous.

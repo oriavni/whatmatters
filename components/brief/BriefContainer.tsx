@@ -8,6 +8,7 @@ import { StoryBlock } from "./StoryBlock";
 import { QuickMentions } from "./QuickMentions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
 import type { BriefDigest } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
@@ -200,7 +201,10 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
     <div className="max-w-2xl mx-auto pb-12">
       <div className="flex items-start justify-between gap-4 mb-8">
         <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
-        <ReadNowButton onGenerate={handleGenerate} />
+        <div className="flex items-center gap-2 shrink-0">
+          <GenerateAudioButton digestId={digest.id} label="🎧 Listen" />
+          <ReadNowButton onGenerate={handleGenerate} />
+        </div>
       </div>
 
       {fullBlocks.length > 0 && (
