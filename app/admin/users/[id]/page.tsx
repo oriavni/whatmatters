@@ -38,6 +38,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
     interestsResult,
     suppressionsResult,
     prefsResult,
+    audioResult,
   ] = await Promise.all([
     supabase.from("users").select("*").eq("id", id).single(),
     supabase.from("subscriptions").select("*").eq("user_id", id).maybeSingle(),
@@ -53,6 +54,11 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
     supabase.from("topic_suppressions").select("topic, suppress_level, digests_remaining, updated_at")
       .eq("user_id", id).gt("digests_remaining", 0),
     supabase.from("user_preferences").select("*").eq("user_id", id).maybeSingle(),
+    supabase.from("audio_digests")
+      .select("id, status, file_size_bytes, error_message, created_at")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   if (!userResult.data) notFound();
@@ -66,6 +72,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
   const interests = interestsResult.data ?? [];
   const suppressions = suppressionsResult.data ?? [];
   const prefs = prefsResult.data;
+  const audioRows = audioResult.data ?? [];
 
   const inboundAddress = `${user.inbound_slug}@${config.postmark.inboundDomain}`;
 
@@ -305,6 +312,49 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        {/* Audio activity */}
+        <Section title="Audio Activity">
+          {audioRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No audio briefs generated</p>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 border-b">
+                  <tr>
+                    {["Created", "Status", "Size", "Error"].map((h) => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {audioRows.map((a) => (
+                    <tr key={a.id}>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(a.created_at)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                          a.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800"
+                            : a.status === "failed"
+                            ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+                            : a.status === "generating"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800"
+                            : "bg-muted text-muted-foreground border-border"
+                        }`}>{a.status}</span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {a.file_size_bytes != null ? `${Math.round(a.file_size_bytes / 1024)} KB` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-destructive max-w-xs truncate">
+                        {a.error_message ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

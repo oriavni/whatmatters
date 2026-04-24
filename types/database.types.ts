@@ -20,6 +20,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audio_digests: {
+        Row: {
+          id: string;
+          user_id: string;
+          digest_id: string;
+          status: string;
+          storage_path: string | null;
+          duration_sec: number | null;
+          file_size_bytes: number | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          digest_id: string;
+          status?: string;
+          storage_path?: string | null;
+          duration_sec?: number | null;
+          file_size_bytes?: number | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          digest_id?: string;
+          status?: string;
+          storage_path?: string | null;
+          duration_sec?: number | null;
+          file_size_bytes?: number | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           id: string;
@@ -28,6 +67,7 @@ export type Database = {
           avatar_url: string | null;
           inbound_slug: string;
           timezone: string;
+          is_premium_override: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -38,6 +78,7 @@ export type Database = {
           avatar_url?: string | null;
           inbound_slug: string;
           timezone?: string;
+          is_premium_override?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -48,6 +89,7 @@ export type Database = {
           avatar_url?: string | null;
           inbound_slug?: string;
           timezone?: string;
+          is_premium_override?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -601,3 +643,4 @@ export type JobLogRow = Database["public"]["Tables"]["job_logs"]["Row"];
 export type TopicSuppressionRow = Database["public"]["Tables"]["topic_suppressions"]["Row"];
 export type PricingConfigRow = Database["public"]["Tables"]["pricing_config"]["Row"];
 export type SystemFlagRow = Database["public"]["Tables"]["system_flags"]["Row"];
+export type AudioDigestRow = Database["public"]["Tables"]["audio_digests"]["Row"];

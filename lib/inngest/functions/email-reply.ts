@@ -143,6 +143,20 @@ function confirmationText(
         subject: "Brief: source muted",
         text: `Done — "${extras.sourceName ?? parsed.source}" has been muted and won't appear in future digests.`,
       };
+    case "audio_brief":
+      if ((extras as { audioPremiumBlocked?: boolean }).audioPremiumBlocked) {
+        const reason = (extras as { audioBlockReason?: string }).audioBlockReason;
+        return {
+          subject: "Brief: Audio Briefs are a premium feature",
+          text: reason === "cap_reached"
+            ? "You've reached your monthly audio limit (20 per month). Your limit resets next month."
+            : "Audio Briefs are available on the Pro plan. Upgrade at getupto.io/pricing to listen to your digests.",
+        };
+      }
+      return {
+        subject: "Brief: generating your audio",
+        text: "On it — your audio brief is being generated. It'll be ready in your app in about 30 seconds.\n\nhttps://www.getupto.io/app/audio-briefs",
+      };
     default:
       return {
         subject: "Brief: quick question",
@@ -281,6 +295,7 @@ export const emailReplyParse = inngest.createFunction(
         change_schedule: "save",
         read_now: "expand",
         mute_source: "skip",
+        audio_brief: "expand",
       };
 
       const matchedCluster = parsed.topic
@@ -385,6 +400,38 @@ export const emailReplyParse = inngest.createFunction(
             }
           }
           return { sourceName: parsed.source };
+        }
+
+        case "audio_brief": {
+          // Check premium, then create audio_digests row and fire Inngest event
+          const { canGenerateAudio } = await import("@/lib/audio/premium");
+          const { allowed, reason } = await canGenerateAudio(userId);
+          if (!allowed) {
+            return { audioPremiumBlocked: true, audioBlockReason: reason };
+          }
+          // Idempotency: check if already exists
+          const { data: existing } = await supabase
+            .from("audio_digests")
+            .select("id, status")
+            .eq("user_id", userId)
+            .eq("digest_id", digest_id)
+            .maybeSingle();
+          if (existing) {
+            return { audioDigestId: existing.id, audioAlreadyExists: true };
+          }
+          const { data: audioRow } = await supabase
+            .from("audio_digests")
+            .insert({ user_id: userId, digest_id, status: "pending" })
+            .select("id")
+            .single();
+          if (audioRow) {
+            await inngest.send({
+              name: "audio/generate",
+              data: { audio_digest_id: audioRow.id, user_id: userId, digest_id },
+            });
+            return { audioDigestId: audioRow.id };
+          }
+          return {};
         }
 
         default:

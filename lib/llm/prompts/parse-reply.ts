@@ -1,13 +1,14 @@
 /**
  * Reply-to-email command parsing prompt.
  *
- * V1 supports exactly 6 intents:
+ * V1 supports exactly 7 intents:
  *   ignore_topic     — show less of a topic in future digests
  *   more_topic       — show more of a topic
  *   read_original    — send original source link(s)
  *   change_schedule  — change delivery frequency / time
  *   read_now         — generate a fresh digest immediately
  *   mute_source      — pause a source permanently
+ *   audio_brief      — generate an audio version of the digest
  *
  * If the intent is unclear, returns intent: null (triggers clarification reply).
  */
@@ -18,7 +19,8 @@ export type ReplyIntent =
   | "read_original"
   | "change_schedule"
   | "read_now"
-  | "mute_source";
+  | "mute_source"
+  | "audio_brief";
 
 export interface ParsedReply {
   intent: ReplyIntent | null;
@@ -42,6 +44,7 @@ SUPPORTED INTENTS:
   change_schedule  — user wants to change delivery time or frequency (e.g. "switch to daily", "send at 9am", "every monday")
   read_now         — user wants a fresh digest generated right now (e.g. "read now", "give me today's brief", "refresh")
   mute_source      — user wants to stop seeing content from a source (e.g. "mute TechCrunch", "stop sending Bloomberg")
+  audio_brief      — user wants to listen to an audio version of the digest (e.g. "audio", "listen", "podcast this", "read it to me", "האזן", "הקרא לי")
 
 RULES:
   - Set confidence to "high" when the intent is unambiguous.
@@ -49,6 +52,7 @@ RULES:
   - Extract topic (string) for: ignore_topic, more_topic, read_original. Use the user's words exactly; do not rephrase.
   - Extract source (string) for: mute_source. Use the source name as the user wrote it.
   - Extract schedule (string) for: change_schedule. Copy the relevant phrase verbatim (e.g. "daily", "monday morning", "8am").
+  - Leave topic, source, schedule as null for: audio_brief, read_now.
   - Leave unneeded fields as null.
 
 RESPONSE FORMAT (strict JSON):

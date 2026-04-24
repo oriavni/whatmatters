@@ -143,6 +143,7 @@ export const digestSend = inngest.createFunction(
 
       const replyToAddress = `reply+${digest_id}@${config.postmark.replyDomain}`;
       const appUrl = config.app.url;
+      const listenUrl = `${appUrl}/app/audio-briefs/${digest_id}`;
 
       return renderEmail(
         React.createElement(DigestEmail, {
@@ -155,6 +156,7 @@ export const digestSend = inngest.createFunction(
           unsubscribeUrl: `${appUrl}/app/preferences`,
           preferencesUrl: `${appUrl}/app/preferences`,
           appUrl,
+          listenUrl,
         })
       );
     });

@@ -61,6 +61,7 @@ export interface DigestEmailProps {
   unsubscribeUrl: string;
   preferencesUrl: string;
   appUrl: string;
+  listenUrl?: string;
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ const s = {
   footer: { padding: "20px 32px 28px", borderTop: "1px solid #eeeeee", marginTop: "24px" },
   footerText: { fontSize: "12px", color: "#aaaaaa", lineHeight: "1.6", margin: "0" },
   footerLink: { color: "#aaaaaa", textDecoration: "underline" },
+  listenBtn: { display: "inline-block", marginTop: "12px", padding: "8px 16px", backgroundColor: "#111111", color: "#ffffff", borderRadius: "6px", fontSize: "13px", fontWeight: "600", textDecoration: "none" } as const,
 } as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -97,6 +99,7 @@ export function DigestEmail({
   unsubscribeUrl,
   preferencesUrl,
   appUrl,
+  listenUrl,
 }: DigestEmailProps) {
   const fullBlocks = clusters.filter((c) => c.isFullBlock);
   const shortMentions = clusters.filter((c) => !c.isFullBlock);
@@ -112,6 +115,9 @@ export function DigestEmail({
           <Section style={s.header}>
             <Text style={s.wordmark}>Brief</Text>
             <Text style={s.dateLine}>{periodLabel}</Text>
+            {listenUrl && (
+              <Link href={listenUrl} style={s.listenBtn}>🎧 Listen to this Brief</Link>
+            )}
           </Section>
 
           {/* Full story blocks */}

@@ -13,15 +13,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BookOpen, Archive, Radio, Compass, Settings } from "lucide-react";
+import { BookOpen, Archive, Radio, Compass, Settings, Headphones } from "lucide-react";
 import { UserNav } from "./UserNav";
 
 const navItems = [
-  { label: "Brief",       href: "/app/brief",       icon: BookOpen },
-  { label: "Archive",     href: "/app/archive",     icon: Archive  },
-  { label: "Sources",     href: "/app/sources",     icon: Radio    },
-  { label: "Discover",    href: "/app/discover",    icon: Compass  },
-  { label: "Preferences", href: "/app/preferences", icon: Settings },
+  { label: "Brief",        href: "/app/brief",         icon: BookOpen   },
+  { label: "Archive",      href: "/app/archive",       icon: Archive    },
+  { label: "Audio Briefs", href: "/app/audio-briefs",  icon: Headphones },
+  { label: "Sources",      href: "/app/sources",       icon: Radio      },
+  { label: "Discover",     href: "/app/discover",      icon: Compass    },
+  { label: "Preferences",  href: "/app/preferences",   icon: Settings   },
 ] as const;
 
 interface AppSidebarProps {

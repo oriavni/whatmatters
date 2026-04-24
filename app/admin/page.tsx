@@ -13,6 +13,7 @@ const TABS = [
   { key: "users", label: "Users" },
   { key: "inbound", label: "Inbound" },
   { key: "replies", label: "Replies" },
+  { key: "audio", label: "Audio Briefs" },
   { key: "pricing", label: "Pricing" },
   { key: "flags", label: "Flags" },
 ] as const;
@@ -153,6 +154,46 @@ export default async function AdminPage(props: {
     if (uids.length > 0) {
       const { data: uRows } = await supabase.from("users").select("id, email").in("id", uids);
       replyUserEmails = new Map((uRows ?? []).map((u) => [u.id, u.email]));
+    }
+  }
+
+  // ── Audio tab ────────────────────────────────────────────────────────────────
+  let audioRows: Array<{
+    id: string;
+    user_id: string;
+    digest_id: string;
+    status: string;
+    file_size_bytes: number | null;
+    error_message: string | null;
+    created_at: string;
+  }> = [];
+  let audioUserEmails = new Map<string, string>();
+  let audioCount24h = 0;
+  let audioCountTotal = 0;
+
+  if (tab === "audio") {
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const [rowsResult, count24hResult, countTotalResult] = await Promise.all([
+      supabase
+        .from("audio_digests")
+        .select("id, user_id, digest_id, status, file_size_bytes, error_message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("audio_digests")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", oneDayAgo),
+      supabase
+        .from("audio_digests")
+        .select("*", { count: "exact", head: true }),
+    ]);
+    audioRows = rowsResult.data ?? [];
+    audioCount24h = count24hResult.count ?? 0;
+    audioCountTotal = countTotalResult.count ?? 0;
+    const uids = [...new Set(audioRows.map((r) => r.user_id))];
+    if (uids.length > 0) {
+      const { data: uRows } = await supabase.from("users").select("id, email").in("id", uids);
+      audioUserEmails = new Map((uRows ?? []).map((u) => [u.id, u.email]));
     }
   }
 
@@ -380,6 +421,71 @@ export default async function AdminPage(props: {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Audio Briefs ──────────────────────────────────────────────────── */}
+        {tab === "audio" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <MetricCard label="Generated last 24h" value={audioCount24h} />
+              <MetricCard label="Generated all time" value={audioCountTotal} />
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Last 50 audio brief generations across all users</p>
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      {["User", "Digest ID", "Status", "Size", "Created", "Error"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {audioRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {audioUserEmails.get(row.user_id) ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                          {row.digest_id.slice(0, 8)}…
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                            row.status === "completed"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800"
+                              : row.status === "failed"
+                              ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+                              : row.status === "generating"
+                              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800"
+                              : "bg-muted text-muted-foreground border-border"
+                          }`}>{row.status}</span>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {row.file_size_bytes != null
+                            ? `${Math.round(row.file_size_bytes / 1024)} KB`
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDateTime(row.created_at)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-destructive max-w-xs truncate">
+                          {row.error_message ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    {audioRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                          No audio briefs generated yet
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

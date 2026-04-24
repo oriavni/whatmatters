@@ -239,6 +239,7 @@ export async function processReplyEmail({
     change_schedule: "save",
     read_now: "expand",
     mute_source: "skip",
+    audio_brief: "expand",
   };
 
   const matchedCluster = parsed.topic ? matchCluster(parsed.topic, clusters) : null;
