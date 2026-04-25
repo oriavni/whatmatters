@@ -21,6 +21,8 @@ export type AudioMode = "dialogue" | "read";
 export interface AudioGenerateResult {
   storagePath: string;
   fileSizeBytes: number;
+  /** Estimated playback duration in whole seconds (MP3 @ 128 kbps). */
+  durationSec: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -257,7 +259,11 @@ export async function generateAudioForDigest(
     throw new Error(`generateAudio: upload failed — ${uploadError.message}`);
   }
 
-  return { storagePath, fileSizeBytes };
+  // Estimate duration from file size. OpenAI tts-1 outputs MP3 at ~128 kbps
+  // (16 000 bytes/sec). Good enough for display; the browser reports exact value.
+  const durationSec = Math.round(fileSizeBytes / 16_000);
+
+  return { storagePath, fileSizeBytes, durationSec };
 }
 
 /**

@@ -57,7 +57,7 @@ export default async function AudioBriefsPage() {
       .limit(20),
     serviceSupabase
       .from("audio_digests")
-      .select("id, digest_id, status, created_at, error_message")
+      .select("id, digest_id, status, duration_sec, created_at, error_message")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
     getMonthlyAudioCount(user.id),
@@ -79,6 +79,7 @@ export default async function AudioBriefsPage() {
             id: a.id,
             digest_id: a.digest_id,
             status: a.status as AudioRow["status"],
+            duration_sec: (a.duration_sec as number | null) ?? null,
             created_at: a.created_at,
           } satisfies AudioRow)
         : null,

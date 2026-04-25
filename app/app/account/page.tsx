@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/lib/button-variants";
 import { Badge } from "@/components/ui/badge";
 import { CopyAddressButton } from "@/components/account/CopyAddressButton";
 import { config } from "@/lib/config";
@@ -61,9 +63,9 @@ export default async function AccountPage() {
           </span>
         </div>
         {plan === "free" && (
-          <Button variant="outline" size="sm">
+          <Link href="/pricing" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Upgrade to Pro
-          </Button>
+          </Link>
         )}
       </section>
 

@@ -19,6 +19,7 @@ export interface AudioRow {
   id: string;
   digest_id: string;
   status: "pending" | "generating" | "completed" | "failed";
+  duration_sec: number | null;
   created_at: string;
 }
 
@@ -33,6 +34,13 @@ export interface DigestItem {
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function fmtDuration(sec: number | null | undefined): string | null {
+  if (!sec || sec <= 0) return null;
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -162,7 +170,7 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
       setAudio((prev) =>
         prev
           ? { ...prev, status: "pending" }
-          : { id: data.audio_digest_id ?? "", digest_id: digest.id, status: "pending", created_at: new Date().toISOString() }
+          : { id: data.audio_digest_id ?? "", digest_id: digest.id, status: "pending", duration_sec: null, created_at: new Date().toISOString() }
       );
       startPolling();
     } catch {
@@ -212,6 +220,13 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          {/* Duration badge — only shown for completed audio */}
+          {showPlay && fmtDuration(audio?.duration_sec) && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {fmtDuration(audio?.duration_sec)}
+            </span>
+          )}
+
           {showGenerate && (
             <Button variant="outline" size="sm" onClick={handleGenerate}>
               <Headphones className="w-3 h-3 mr-1.5" />
