@@ -3,18 +3,16 @@
 /**
  * Interactive Audio Briefs list.
  *
- * - Completed rows expand inline on Play click — no page navigation needed.
- * - Inline mini-player shows progress/scrubber synced with the global player.
+ * - "Generate" fires generation inline — no page navigation, no alert().
+ * - Completed rows expand with an animated inline mini-player on Play.
  * - Pending/generating rows poll until ready, then flip to Play.
- * - Global floating bar appears automatically when a track is loaded.
+ * - The global floating bar appears automatically when a track is loaded.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { Loader2, Pause, Play } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Headphones, Loader2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
 import { useAudioPlayer } from "@/lib/audio/player-context";
 
 export interface AudioRow {
@@ -31,7 +29,7 @@ export interface DigestItem {
   audio: AudioRow | null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -42,7 +40,7 @@ function fmt(sec: number): string {
 
 const POLL_MS = 3000;
 
-// ── Inline mini-player (shown when a row is expanded) ────────────────────────
+// ── Inline mini-player ────────────────────────────────────────────────────────
 
 function InlineMiniPlayer({ digestId, title }: { digestId: string; title: string }) {
   const { track, isPlaying, currentTime, duration, togglePlayPause, seek } = useAudioPlayer();
@@ -56,7 +54,7 @@ function InlineMiniPlayer({ digestId, title }: { digestId: string; title: string
   }
 
   return (
-    <div className="pt-3 pb-1 flex items-center gap-3">
+    <div className="pt-3 pb-0.5 flex items-center gap-3">
       <Button
         variant="ghost"
         size="icon"
@@ -94,13 +92,16 @@ function InlineMiniPlayer({ digestId, title }: { digestId: string; title: string
   );
 }
 
-// ── Single list row ───────────────────────────────────────────────────────────
+// ── Single row ────────────────────────────────────────────────────────────────
 
 function AudioBriefRow({ digest }: { digest: DigestItem }) {
   const player = useAudioPlayer();
   const [audio, setAudio] = useState<AudioRow | null>(digest.audio);
   const [expanded, setExpanded] = useState(false);
   const [loadingPlay, setLoadingPlay] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isActiveTrack = player.track?.digestId === digest.id;
   const title = digest.subject ?? "Audio Brief";
@@ -110,60 +111,75 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
     day: "numeric",
   });
 
-  // Poll while generating/pending — flip to completed when done.
-  useEffect(() => {
-    if (audio?.status !== "pending" && audio?.status !== "generating") return;
-    const iv = setInterval(async () => {
+  // Stop polling on unmount
+  useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
+
+  // Start polling whenever status is pending/generating
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return; // already polling
+    pollingRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/audio/${digest.id}`);
         const data = await res.json();
         if (data.status === "completed" || data.status === "failed") {
-          setAudio((prev) =>
-            prev ? { ...prev, status: data.status } : prev
-          );
-          clearInterval(iv);
-        } else {
-          setAudio((prev) =>
-            prev ? { ...prev, status: data.status } : prev
-          );
+          setAudio((prev) => prev ? { ...prev, status: data.status } : prev);
+          setGenerating(false);
+          if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+        } else if (data.status === "pending" || data.status === "generating") {
+          setAudio((prev) => prev ? { ...prev, status: data.status } : prev);
         }
       } catch {
         // ignore transient errors
       }
     }, POLL_MS);
-    return () => clearInterval(iv);
-  }, [audio?.status, digest.id]);
+  }, [digest.id]);
 
-  // After GenerateAudioButton fires, audio row may not exist yet — listen for it.
+  // Pick up already-in-progress rows from server render
   useEffect(() => {
-    if (audio) return; // already have a row
-    // Only start polling once we know generation was initiated
-    // (GenerateAudioButton navigates back here, so the server re-renders the page
-    // with the new row; but in case it's still propagating we do one quick check).
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/audio/${digest.id}`);
-        const data = await res.json();
-        if (data.status && data.status !== "not_found") {
-          setAudio({
-            id: "",
-            digest_id: digest.id,
-            status: data.status,
-            created_at: new Date().toISOString(),
-          });
-        }
-      } catch {
-        // ignore
-      }
-    }, 1500);
-    return () => clearTimeout(timeout);
-  }, [audio, digest.id]);
+    if (audio?.status === "pending" || audio?.status === "generating") {
+      setGenerating(true);
+      startPolling();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Generate inline
+  const handleGenerate = useCallback(async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/audio/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digest_id: digest.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGenerating(false);
+        setGenError(data.error ?? "Failed to start generation.");
+        return;
+      }
+      // Row is now pending — start polling
+      setAudio((prev) =>
+        prev
+          ? { ...prev, status: "pending" }
+          : { id: data.audio_digest_id ?? "", digest_id: digest.id, status: "pending", created_at: new Date().toISOString() }
+      );
+      startPolling();
+    } catch {
+      setGenerating(false);
+      setGenError("Something went wrong. Please try again.");
+    }
+  }, [digest.id, startPolling]);
+
+  // Play inline — fetch signed URL on demand, load into global player
   const handlePlay = useCallback(async () => {
-    // If this track is already loaded, just toggle expand + play/pause.
     if (isActiveTrack) {
-      setExpanded((e) => !e);
-      player.togglePlayPause();
+      // Toggle expand / play-pause
+      if (!expanded) {
+        setExpanded(true);
+      } else {
+        player.togglePlayPause();
+      }
       return;
     }
 
@@ -178,10 +194,17 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
     } finally {
       setLoadingPlay(false);
     }
-  }, [digest.id, isActiveTrack, player, title]);
+  }, [digest.id, expanded, isActiveTrack, player, title]);
+
+  // ── Row actions ─────────────────────────────────────────────────────────────
+  const showGenerate = !audio && !generating;
+  const showGenerating = generating || audio?.status === "pending" || audio?.status === "generating";
+  const showPlay = !generating && audio?.status === "completed";
+  const showFailed = !generating && audio?.status === "failed";
 
   return (
     <div className="py-4">
+      {/* ── Main row ── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate text-sm">{title}</p>
@@ -189,13 +212,21 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          {/* No audio row yet */}
-          {!audio && (
-            <GenerateAudioButton digestId={digest.id} />
+          {showGenerate && (
+            <Button variant="outline" size="sm" onClick={handleGenerate}>
+              <Headphones className="w-3 h-3 mr-1.5" />
+              Generate
+            </Button>
           )}
 
-          {/* Completed → inline Play button */}
-          {audio?.status === "completed" && (
+          {showGenerating && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Generating…
+            </span>
+          )}
+
+          {showPlay && (
             <Button
               variant="outline"
               size="sm"
@@ -204,43 +235,48 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
             >
               {loadingPlay ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
-              ) : isActiveTrack && player.isPlaying ? (
-                <><Pause className="w-3 h-3 mr-1" /> Pause</>
+              ) : isActiveTrack && player.isPlaying && expanded ? (
+                <><Pause className="w-3 h-3 mr-1" />Pause</>
               ) : (
-                <><Play className="w-3 h-3 mr-1" /> Play</>
+                <><Play className="w-3 h-3 mr-1" />Play</>
               )}
             </Button>
           )}
 
-          {/* Generating */}
-          {(audio?.status === "pending" || audio?.status === "generating") && (
-            <span className="text-xs text-muted-foreground animate-pulse flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Generating…
-            </span>
-          )}
-
-          {/* Failed → retry */}
-          {audio?.status === "failed" && (
-            <GenerateAudioButton digestId={digest.id} label="Retry" />
+          {showFailed && (
+            <Button variant="outline" size="sm" onClick={handleGenerate}>
+              Retry
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Inline mini-player — shown when this row is expanded */}
-      {expanded && audio?.status === "completed" && (
-        <InlineMiniPlayer digestId={digest.id} title={title} />
+      {/* ── Inline error ── */}
+      {genError && (
+        <p className="mt-2 text-xs text-destructive">{genError}</p>
       )}
+
+      {/* ── Animated inline mini-player ── */}
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          expanded && showPlay ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <InlineMiniPlayer digestId={digest.id} title={title} />
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── List ─────────────────────────────────────────────────────────────────────
+// ── List ──────────────────────────────────────────────────────────────────────
 
 export function AudioBriefsList({ digests }: { digests: DigestItem[] }) {
   if (digests.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground">
+        <Headphones className="w-10 h-10 mx-auto mb-3 opacity-30" />
         <p>No briefs yet.</p>
         <p className="text-sm mt-1">Your digests will appear here once generated.</p>
       </div>

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Digest not found" }, { status: 404 });
   }
 
-  // Idempotency: return existing if already requested
+  // Idempotency: skip if already in-progress; allow retry if failed
   const { data: existing } = await serviceSupabase
     .from("audio_digests")
     .select("id, status")
@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
     .eq("digest_id", digest_id)
     .maybeSingle();
 
-  if (existing) {
+  if (existing && existing.status !== "failed") {
+    // Already pending/generating/completed — nothing to do
     return NextResponse.json({
       audio_digest_id: existing.id,
       status: existing.status,
@@ -69,49 +70,54 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Create audio_digests row
-  const { data: audioRow, error: insertError } = await serviceSupabase
-    .from("audio_digests")
-    .insert({
-      user_id: user.id,
-      digest_id,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !audioRow) {
-    return NextResponse.json(
-      { error: `Failed to create audio record: ${insertError?.message}` },
-      { status: 500 }
-    );
+  // Create or reset the audio_digests row
+  let audioDigestId: string;
+  if (existing?.status === "failed") {
+    // Reset failed row so the user can retry
+    const { error: updateError } = await serviceSupabase
+      .from("audio_digests")
+      .update({ status: "pending", error_message: null, updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (updateError) {
+      return NextResponse.json(
+        { error: `Failed to reset audio record: ${updateError.message}` },
+        { status: 500 }
+      );
+    }
+    audioDigestId = existing.id;
+  } else {
+    const { data: audioRow, error: insertError } = await serviceSupabase
+      .from("audio_digests")
+      .insert({ user_id: user.id, digest_id, status: "pending" })
+      .select("id")
+      .single();
+    if (insertError || !audioRow) {
+      return NextResponse.json(
+        { error: `Failed to create audio record: ${insertError?.message}` },
+        { status: 500 }
+      );
+    }
+    audioDigestId = audioRow.id;
   }
 
   // Fire Inngest event
   try {
     await inngest.send({
       name: "audio/generate",
-      data: {
-        audio_digest_id: audioRow.id,
-        user_id: user.id,
-        digest_id,
-      },
+      data: { audio_digest_id: audioDigestId, user_id: user.id, digest_id },
     });
-  } catch (err) {
-    // Inngest unavailable — mark failed so user can retry
-    await serviceSupabase
-      .from("audio_digests")
-      .update({ status: "failed", error_message: "Failed to queue generation" })
-      .eq("id", audioRow.id);
-
+  } catch {
+    // Inngest unavailable (e.g. dev server not running) — keep row as pending
+    // so the user sees "Generating…" rather than a hard error. It won't
+    // complete without the worker, but the row can be reset on next retry.
     return NextResponse.json(
-      { error: "Failed to queue audio generation. Please try again." },
-      { status: 500 }
+      { error: "Could not connect to the audio worker. Check that the Inngest dev server is running." },
+      { status: 503 }
     );
   }
 
   return NextResponse.json({
-    audio_digest_id: audioRow.id,
+    audio_digest_id: audioDigestId,
     status: "pending",
   });
 }
