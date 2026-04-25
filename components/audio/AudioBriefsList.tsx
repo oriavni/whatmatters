@@ -10,9 +10,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Headphones, Loader2, Pause, Play } from "lucide-react";
+import { CheckCircle2, Headphones, Loader2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAudioPlayer } from "@/lib/audio/player-context";
 
 export interface AudioRow {
@@ -111,6 +112,7 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
   const [expanded, setExpanded] = useState(false);
   const [loadingPlay, setLoadingPlay] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -135,6 +137,10 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
         if (data.status === "completed" || data.status === "failed") {
           setAudio((prev) => prev ? { ...prev, status: data.status } : prev);
           setGenerating(false);
+          if (data.status === "completed") {
+            setJustCompleted(true);
+            setTimeout(() => setJustCompleted(false), 2000);
+          }
           if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
         } else if (data.status === "pending" || data.status === "generating") {
           setAudio((prev) => prev ? { ...prev, status: data.status } : prev);
@@ -214,7 +220,8 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
   const showFailed = !generating && audio?.status === "failed";
 
   return (
-    <div className="py-4">
+    <Card>
+      <CardContent className="py-4">
       {/* ── Main row ── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -240,11 +247,17 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
           {showGenerating && (
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Generating…
+              <span>Creating audio<span className="animate-pulse">…</span></span>
             </span>
           )}
 
-          {showPlay && (
+          {justCompleted && (
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Ready
+            </span>
+          )}
+
+          {showPlay && !justCompleted && (
             <Button
               variant="outline"
               size="sm"
@@ -284,7 +297,8 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
           <InlineMiniPlayer digestId={digest.id} title={title} />
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -302,7 +316,7 @@ export function AudioBriefsList({ digests }: { digests: DigestItem[] }) {
   }
 
   return (
-    <div className="divide-y">
+    <div className="space-y-2">
       {digests.map((digest) => (
         <AudioBriefRow key={digest.id} digest={digest} />
       ))}
