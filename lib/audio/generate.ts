@@ -153,6 +153,28 @@ async function ttsText(openai: OpenAI, text: string, voice: TTSVoice): Promise<B
   return Buffer.from(arrayBuffer);
 }
 
+/**
+ * Run TTS for an array of items in parallel batches.
+ * Batching avoids hitting OpenAI rate limits while being much faster than
+ * sequential processing (typical dialogue: ~40 lines → 8 batches of 5 instead
+ * of 40 serial calls).
+ */
+async function ttsBatch<T extends { text: string; voice: TTSVoice }>(
+  openai: OpenAI,
+  items: T[],
+  concurrency = 8
+): Promise<Buffer[]> {
+  const results: Buffer[] = new Array(items.length);
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const buffers = await Promise.all(
+      batch.map(({ text, voice }) => ttsText(openai, text, voice))
+    );
+    buffers.forEach((buf, j) => { results[i + j] = buf; });
+  }
+  return results;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -201,19 +223,19 @@ export async function generateAudioForDigest(
       throw new Error("generateAudio: dialogue script produced no parseable lines");
     }
 
-    // 4a. TTS each line with the appropriate voice
-    for (const line of lines) {
-      const voice: TTSVoice = line.speaker === "A" ? "alloy" : "shimmer";
-      const buf = await ttsText(openai, line.text, voice);
-      buffers.push(buf);
-    }
+    // 4a. TTS all lines in parallel batches (order preserved)
+    const items = lines.map((l) => ({
+      text: l.text,
+      voice: (l.speaker === "A" ? "alloy" : "shimmer") as TTSVoice,
+    }));
+    const batchedBuffers = await ttsBatch(openai, items);
+    buffers.push(...batchedBuffers);
   } else {
-    // 3b. "read" mode — chunk and TTS with a single voice
+    // 3b. "read" mode — chunk and TTS with a single voice, batched
     const chunks = chunkText(cleaned);
-    for (const chunk of chunks) {
-      const buf = await ttsText(openai, chunk, "alloy");
-      buffers.push(buf);
-    }
+    const items = chunks.map((text) => ({ text, voice: "alloy" as TTSVoice }));
+    const batchedBuffers = await ttsBatch(openai, items);
+    buffers.push(...batchedBuffers);
   }
 
   // 5. Concatenate all MP3 buffers
