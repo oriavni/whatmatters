@@ -3,7 +3,7 @@
  *
  * Supports two rendering modes:
  *   - "dialogue"  (default) — converts the digest into a two-host news dialogue
- *     using GPT-4o-mini, then TTS each line with distinct voices (alloy / shimmer).
+ *     using GPT-4o-mini, then TTS each line with distinct voices (onyx / nova).
  *   - "read"      — legacy single-voice read-aloud using chunked TTS (voice: alloy).
  *
  * Results are uploaded to Supabase Storage (audio-briefs bucket).
@@ -137,7 +137,7 @@ export function parseDialogueLines(
 
 // ─── TTS helpers ──────────────────────────────────────────────────────────────
 
-type TTSVoice = "alloy" | "shimmer";
+type TTSVoice = "alloy" | "shimmer" | "onyx" | "nova";
 
 /**
  * Call OpenAI TTS for a single piece of text; returns the raw MP3 Buffer.
@@ -224,9 +224,11 @@ export async function generateAudioForDigest(
     }
 
     // 4a. TTS all lines in parallel batches (order preserved)
+    // HOST_A: onyx (deep, authoritative male)
+    // HOST_B: nova  (bright, energetic female) — maximises voice contrast
     const items = lines.map((l) => ({
       text: l.text,
-      voice: (l.speaker === "A" ? "alloy" : "shimmer") as TTSVoice,
+      voice: (l.speaker === "A" ? "onyx" : "nova") as TTSVoice,
     }));
     const batchedBuffers = await ttsBatch(openai, items);
     buffers.push(...batchedBuffers);

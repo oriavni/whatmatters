@@ -24,7 +24,10 @@ export const audioGenerate = inngest.createFunction(
     id: "audio-generate",
     name: "Generate Audio Brief",
     triggers: [{ event: "audio/generate" }],
-    retries: 2,
+    retries: 1,
+    timeouts: {
+      finish: "3m", // hard ceiling — parallel TTS should complete well under 1 min
+    },
     concurrency: {
       limit: 3, // TTS can run in parallel across users
     },
