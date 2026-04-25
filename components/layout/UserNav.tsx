@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronsUpDown, LogOut, Settings, Sparkles, UserCircle } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, UserCircle } from "lucide-react";
 import Link from "next/link";
 
 interface UserNavProps {
@@ -90,10 +90,6 @@ export function UserNav({ email }: UserNavProps) {
               <DropdownMenuItem render={<Link href="/app/preferences" />}>
                 <Settings />
                 Preferences
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/pricing" />}>
-                <Sparkles />
-                Pricing
               </DropdownMenuItem>
             </DropdownMenuGroup>
 

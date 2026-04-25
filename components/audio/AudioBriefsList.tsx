@@ -20,6 +20,7 @@ export interface AudioRow {
   digest_id: string;
   status: "pending" | "generating" | "completed" | "failed";
   duration_sec: number | null;
+  file_size_bytes: number | null;
   created_at: string;
 }
 
@@ -39,7 +40,9 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function fmtDuration(sec: number | null | undefined): string | null {
+function fmtDuration(row: Pick<AudioRow, "duration_sec" | "file_size_bytes">): string | null {
+  // Prefer stored duration; fall back to estimate from file size (128 kbps)
+  const sec = row.duration_sec ?? (row.file_size_bytes ? Math.round(row.file_size_bytes / 16_000) : null);
   if (!sec || sec <= 0) return null;
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
@@ -170,7 +173,7 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
       setAudio((prev) =>
         prev
           ? { ...prev, status: "pending" }
-          : { id: data.audio_digest_id ?? "", digest_id: digest.id, status: "pending", duration_sec: null, created_at: new Date().toISOString() }
+          : { id: data.audio_digest_id ?? "", digest_id: digest.id, status: "pending", duration_sec: null, file_size_bytes: null, created_at: new Date().toISOString() }
       );
       startPolling();
     } catch {
@@ -221,9 +224,9 @@ function AudioBriefRow({ digest }: { digest: DigestItem }) {
 
         <div className="flex items-center gap-3 shrink-0">
           {/* Duration badge — only shown for completed audio */}
-          {showPlay && fmtDuration(audio?.duration_sec) && (
+          {showPlay && audio && fmtDuration(audio) && (
             <span className="text-xs text-muted-foreground tabular-nums">
-              {fmtDuration(audio?.duration_sec)}
+              {fmtDuration(audio)}
             </span>
           )}
 
