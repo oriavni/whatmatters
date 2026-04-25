@@ -12,6 +12,14 @@ export interface PricingConfig {
   deal_price_monthly: number;
   deal_slots_total: number;
   deal_slots_remaining: number;
+  /** Whether the Pro plan card is shown on the public pricing page. */
+  pro_visible: boolean;
+  pro_price_monthly: number;
+  pro_label: string;
+  /** Monthly Audio Brief allowance for Pro subscribers. */
+  pro_audio_limit: number;
+  /** Short marketing description for the Pro plan. */
+  pro_description: string;
 }
 
 const DEFAULTS: PricingConfig = {
@@ -22,6 +30,11 @@ const DEFAULTS: PricingConfig = {
   deal_price_monthly: 4.99,
   deal_slots_total: 50,
   deal_slots_remaining: 50,
+  pro_visible: false,
+  pro_price_monthly: 12,
+  pro_label: "Pro",
+  pro_audio_limit: 20,
+  pro_description: "Audio Briefs included — listen to every digest",
 };
 
 export async function getPricingConfig(): Promise<PricingConfig> {
@@ -33,7 +46,7 @@ export async function getPricingConfig(): Promise<PricingConfig> {
       .eq("id", "default")
       .single();
     if (!data) return DEFAULTS;
-    return data as PricingConfig;
+    return { ...DEFAULTS, ...(data as unknown as Partial<PricingConfig>) } as PricingConfig;
   } catch {
     return DEFAULTS;
   }

@@ -1,8 +1,26 @@
 "use client";
 
+/**
+ * GenerateAudioButton
+ *
+ * Idempotent: checks the current audio status via GET before initiating a new
+ * generation job, so repeated or parallel clicks never leave the player in an
+ * inconsistent state.
+ *
+ * Click flow:
+ *   1. GET /api/audio/[digestId] — check existing status
+ *   2. "completed" | "pending" | "generating"  → navigate directly to player
+ *   3. "not_found"                              → POST to generate, then navigate
+ */
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface AudioStatusResponse {
+  status: "completed" | "pending" | "generating" | "not_found" | "failed";
+}
 
 export function GenerateAudioButton({
   digestId,
@@ -17,17 +35,36 @@ export function GenerateAudioButton({
   async function handleClick() {
     setLoading(true);
     try {
-      const res = await fetch("/api/audio/generate", {
+      // ── Step 1: Check current status ────────────────────────────
+      const statusRes = await fetch(`/api/audio/${digestId}`);
+      if (!statusRes.ok) {
+        alert("Could not check audio status. Please try again.");
+        return;
+      }
+      const statusData: AudioStatusResponse = await statusRes.json();
+
+      // ── Step 2: Navigate directly if audio already exists ────────
+      if (
+        statusData.status === "completed" ||
+        statusData.status === "pending" ||
+        statusData.status === "generating"
+      ) {
+        router.push(`/app/audio-briefs/${digestId}`);
+        return;
+      }
+
+      // ── Step 3: Initiate generation for "not_found" (or "failed") ─
+      const genRes = await fetch("/api/audio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ digest_id: digestId }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Navigate to the player page — it will poll until done
+      const genData = await genRes.json();
+
+      if (genRes.ok) {
         router.push(`/app/audio-briefs/${digestId}`);
       } else {
-        alert(data.error ?? "Failed to start generation");
+        alert(genData.error ?? "Failed to start generation");
         setLoading(false);
       }
     } catch {
@@ -37,10 +74,11 @@ export function GenerateAudioButton({
   }
 
   return (
-    <button
+    <Button
+      variant="outline"
+      size="sm"
       onClick={handleClick}
       disabled={loading}
-      className="text-sm px-3 py-1.5 rounded-md border border-border text-foreground font-medium disabled:opacity-50 flex items-center gap-1.5"
     >
       {loading ? (
         <>
@@ -50,6 +88,6 @@ export function GenerateAudioButton({
       ) : (
         label
       )}
-    </button>
+    </Button>
   );
 }

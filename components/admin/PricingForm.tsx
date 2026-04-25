@@ -1,6 +1,26 @@
 "use client";
 
+/**
+ * Admin pricing configuration form.
+ *
+ * Covers three sections:
+ *   1. Base pricing — monthly price and trial days
+ *   2. Deal / founding-member offer — toggled on/off
+ *   3. Pro / Premium plan — toggled on/off via a Switch; shown on the
+ *      marketing pricing page when pro_visible is true
+ */
+
 import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface PricingConfig {
   price_monthly: number;
@@ -10,6 +30,11 @@ interface PricingConfig {
   deal_price_monthly: number;
   deal_slots_total: number;
   deal_slots_remaining: number;
+  pro_visible: boolean;
+  pro_price_monthly: number;
+  pro_label: string;
+  pro_audio_limit: number;
+  pro_description: string;
 }
 
 export function PricingForm({ initial }: { initial: PricingConfig }) {
@@ -37,8 +62,8 @@ export function PricingForm({ initial }: { initial: PricingConfig }) {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Base pricing */}
+    <div className="space-y-6">
+      {/* ── Base pricing ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Monthly price ($)">
           <input
@@ -61,7 +86,7 @@ export function PricingForm({ initial }: { initial: PricingConfig }) {
         </Field>
       </div>
 
-      {/* Deal toggle */}
+      {/* ── Deal / founding-member offer ──────────────────────────── */}
       <label className="flex items-center gap-2 cursor-pointer select-none">
         <input
           type="checkbox"
@@ -72,7 +97,6 @@ export function PricingForm({ initial }: { initial: PricingConfig }) {
         <span className="text-sm font-medium">Deal active (show on pricing page)</span>
       </label>
 
-      {/* Deal details */}
       <div className={`space-y-4 ${form.deal_active ? "" : "opacity-40 pointer-events-none"}`}>
         <Field label="Deal label">
           <input
@@ -114,16 +138,75 @@ export function PricingForm({ initial }: { initial: PricingConfig }) {
         </div>
       </div>
 
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded-lg disabled:opacity-50"
-      >
+      {/* ── Pro / Premium plan ────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Pro / Premium plan</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Toggle */}
+          <div className="flex items-center gap-3">
+            <Switch
+              id="pro_visible"
+              checked={form.pro_visible}
+              onCheckedChange={(checked) => set("pro_visible", checked)}
+            />
+            <Label htmlFor="pro_visible" className="cursor-pointer text-sm font-medium">
+              Show Pro plan on pricing page
+            </Label>
+          </div>
+
+          {/* Pro fields — dimmed when the plan is hidden */}
+          <div className={`space-y-4 ${form.pro_visible ? "" : "opacity-40 pointer-events-none"}`}>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Plan label">
+                <Input
+                  type="text"
+                  value={form.pro_label}
+                  onChange={(e) => set("pro_label", e.target.value)}
+                />
+              </Field>
+              <Field label="Monthly price ($)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.pro_price_monthly}
+                  onChange={(e) => set("pro_price_monthly", parseFloat(e.target.value))}
+                />
+              </Field>
+            </div>
+
+            <Field label="Audio Brief limit (per month)">
+              <Input
+                type="number"
+                min="0"
+                value={form.pro_audio_limit}
+                onChange={(e) => set("pro_audio_limit", parseInt(e.target.value))}
+              />
+            </Field>
+
+            <Field label="Plan description (shown on pricing page)">
+              <input
+                type="text"
+                value={form.pro_description}
+                onChange={(e) => set("pro_description", e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Save ──────────────────────────────────────────────────── */}
+      <Button onClick={handleSave} disabled={saving} variant="default" size="sm">
         {saving ? "Saving…" : saved ? "✓ Saved" : "Save pricing"}
-      </button>
+      </Button>
     </div>
   );
 }
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

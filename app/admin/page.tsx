@@ -198,10 +198,10 @@ export default async function AdminPage(props: {
   }
 
   // ── Pricing tab ─────────────────────────────────────────────────────────────
-  let pricing = null;
+  let pricing: Record<string, unknown> | null = null;
   if (tab === "pricing") {
     const { data } = await supabase.from("pricing_config").select("*").eq("id", "default").single();
-    pricing = data;
+    pricing = data as Record<string, unknown> | null;
   }
 
   // ── Flags tab ───────────────────────────────────────────────────────────────
@@ -507,6 +507,11 @@ export default async function AdminPage(props: {
                   deal_price_monthly: pricing.deal_price_monthly as number,
                   deal_slots_total: pricing.deal_slots_total as number,
                   deal_slots_remaining: pricing.deal_slots_remaining as number,
+                  pro_visible: (pricing.pro_visible ?? false) as boolean,
+                  pro_price_monthly: (pricing.pro_price_monthly ?? 12) as number,
+                  pro_label: (pricing.pro_label ?? "Pro") as string,
+                  pro_audio_limit: (pricing.pro_audio_limit ?? 20) as number,
+                  pro_description: (pricing.pro_description ?? "") as string,
                 }} />
               ) : (
                 <p className="text-sm text-muted-foreground">Run the migration to enable pricing config.</p>

@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json();
 
-  // Whitelist allowed fields
+  // Whitelist allowed fields (includes pro plan columns added in migration 20260425000001)
   const allowed = [
     "price_monthly",
     "trial_days",
@@ -42,6 +42,11 @@ export async function PATCH(request: NextRequest) {
     "deal_price_monthly",
     "deal_slots_total",
     "deal_slots_remaining",
+    "pro_visible",
+    "pro_price_monthly",
+    "pro_label",
+    "pro_audio_limit",
+    "pro_description",
   ];
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const key of allowed) {
