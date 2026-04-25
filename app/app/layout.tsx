@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { AppClientLayout } from "@/components/layout/AppClientLayout";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 export default async function AppLayout({
@@ -25,7 +26,9 @@ export default async function AppLayout({
       <AppSidebar userEmail={user.email ?? ""} />
       <SidebarInset>
         <AppHeader />
-        <main className="flex-1 p-6">{children}</main>
+        <AppClientLayout>
+          <main className="flex-1 p-6 pb-24">{children}</main>
+        </AppClientLayout>
       </SidebarInset>
     </SidebarProvider>
   );

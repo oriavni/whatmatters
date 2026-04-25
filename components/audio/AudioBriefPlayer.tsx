@@ -1,48 +1,78 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Headphones, Play, Pause, Loader2, AlertCircle } from "lucide-react";
+/**
+ * Full-page Audio Brief player.
+ * Used on /app/audio-briefs/[digest_id].
+ *
+ * Delegates actual playback to the global AudioPlayerContext so the
+ * floating bottom bar appears and playback survives navigation.
+ */
+
+import { useEffect, useState } from "react";
+import { Headphones, Loader2, AlertCircle, Play, Pause } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useAudioPlayer } from "@/lib/audio/player-context";
 
 interface AudioBriefPlayerProps {
   digestId: string;
+  title: string;
   audioUrl: string | null;
   status: string;
-  isGenerating: boolean;
+}
+
+function fmt(sec: number): string {
+  if (!isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function AudioBriefPlayer({
   digestId,
+  title,
   audioUrl: initialAudioUrl,
   status: initialStatus,
-  isGenerating: initialIsGenerating,
 }: AudioBriefPlayerProps) {
+  const player = useAudioPlayer();
   const [status, setStatus] = useState(initialStatus);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const isActive = player.track?.digestId === digestId;
+  const progress =
+    isActive && player.duration > 0
+      ? (player.currentTime / player.duration) * 100
+      : 0;
+
+  // Auto-load into global player once URL is available
+  useEffect(() => {
+    if (status === "completed" && audioUrl) {
+      // Load but don't auto-play — let user press the button
+      player.load({ digestId, title, audioUrl }, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, audioUrl]);
 
   // Poll while pending/generating
   useEffect(() => {
     if (status !== "pending" && status !== "generating") return;
-
-    const interval = setInterval(async () => {
+    const iv = setInterval(async () => {
       try {
         const res = await fetch(`/api/audio/${digestId}`);
         const data = await res.json();
         if (data.status === "completed" || data.status === "failed") {
           setStatus(data.status);
           setAudioUrl(data.audio_url ?? null);
-          clearInterval(interval);
+          clearInterval(iv);
         } else {
           setStatus(data.status);
         }
       } catch {
-        // ignore transient errors
+        // ignore
       }
     }, 3000);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [digestId, status]);
 
   const handleGenerate = async () => {
@@ -66,20 +96,20 @@ export function AudioBriefPlayer({
     }
   };
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-  };
+  function handleBarClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!isActive || player.duration === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    player.seek(
+      Math.max(0, Math.min(player.duration, ((e.clientX - rect.left) / rect.width) * player.duration))
+    );
+  }
 
+  // ── Completed ──────────────────────────────────────────────────────────────
   if (status === "completed" && audioUrl) {
     return (
-      <div className="rounded-xl border bg-card p-6 space-y-4">
+      <div className="rounded-xl border bg-card p-6 space-y-5">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-full bg-foreground text-background">
+          <div className="p-3 rounded-full bg-foreground text-background shrink-0">
             <Headphones className="w-5 h-5" />
           </div>
           <div>
@@ -88,33 +118,40 @@ export function AudioBriefPlayer({
           </div>
         </div>
 
-        <audio
-          ref={audioRef}
-          src={audioUrl}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-          className="hidden"
-        />
+        {/* Scrubber */}
+        <div className="space-y-1.5">
+          <div
+            className="cursor-pointer py-1"
+            onClick={handleBarClick}
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(isActive ? player.duration : 0)}
+            aria-valuenow={Math.round(isActive ? player.currentTime : 0)}
+            aria-label="Seek"
+          >
+            <Progress value={progress} className="h-1.5" />
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+            <span>{isActive ? fmt(player.currentTime) : "0:00"}</span>
+            <span>{isActive ? fmt(player.duration) : "--:--"}</span>
+          </div>
+        </div>
 
-        <button
-          onClick={togglePlay}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-foreground text-background font-medium text-sm"
+        <Button
+          className="w-full"
+          onClick={player.togglePlayPause}
         >
-          {isPlaying ? (
-            <>
-              <Pause className="w-4 h-4" /> Pause
-            </>
+          {isActive && player.isPlaying ? (
+            <><Pause className="w-4 h-4 mr-2" /> Pause</>
           ) : (
-            <>
-              <Play className="w-4 h-4" /> Play Audio Brief
-            </>
+            <><Play className="w-4 h-4 mr-2" /> Play Audio Brief</>
           )}
-        </button>
+        </Button>
       </div>
     );
   }
 
+  // ── Generating ─────────────────────────────────────────────────────────────
   if (status === "pending" || status === "generating") {
     return (
       <div className="rounded-xl border bg-card p-6 text-center space-y-3">
@@ -127,24 +164,25 @@ export function AudioBriefPlayer({
     );
   }
 
+  // ── Failed ─────────────────────────────────────────────────────────────────
   if (status === "failed") {
     return (
       <div className="rounded-xl border bg-card p-6 text-center space-y-3">
         <AlertCircle className="w-8 h-8 mx-auto text-destructive" />
         <p className="font-medium text-sm">Generation failed</p>
         <p className="text-xs text-muted-foreground">Please try again.</p>
-        <button
-          onClick={handleGenerate}
-          disabled={isStarting}
-          className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium disabled:opacity-50"
-        >
-          {isStarting ? "Starting…" : "Retry"}
-        </button>
+        <Button onClick={handleGenerate} disabled={isStarting} variant="outline">
+          {isStarting ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+          ) : (
+            "Retry"
+          )}
+        </Button>
       </div>
     );
   }
 
-  // not_found — show generate button
+  // ── Not found — generate ───────────────────────────────────────────────────
   return (
     <div className="rounded-xl border bg-card p-6 text-center space-y-4">
       <div className="p-4 rounded-full bg-muted mx-auto w-fit">
@@ -156,19 +194,17 @@ export function AudioBriefPlayer({
           Generate an audio version narrated by AI.
         </p>
       </div>
-      <button
+      <Button
+        className="w-full"
         onClick={handleGenerate}
         disabled={isStarting}
-        className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm disabled:opacity-50"
       >
         {isStarting ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Starting…
-          </span>
+          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
         ) : (
           "🎧 Generate Audio Brief"
         )}
-      </button>
+      </Button>
     </div>
   );
 }

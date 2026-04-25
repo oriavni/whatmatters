@@ -67,9 +67,9 @@ export default async function AudioBriefDetailPage({
 
       <AudioBriefPlayer
         digestId={digest_id}
+        title={digest.subject ?? "Audio Brief"}
         audioUrl={audioUrl}
         status={audioRow?.status ?? "not_found"}
-        isGenerating={audioRow?.status === "pending" || audioRow?.status === "generating"}
       />
 
       <div className="pt-4 border-t">
