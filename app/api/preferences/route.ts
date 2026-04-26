@@ -19,7 +19,7 @@ export async function GET() {
       .maybeSingle(),
     service
       .from("users")
-      .select("inbound_slug")
+      .select("inbound_slug, timezone")
       .eq("id", user.id)
       .maybeSingle(),
   ]);
@@ -34,11 +34,12 @@ export async function GET() {
     digest_frequency: prefs?.digest_frequency ?? "daily",
     digest_time: prefs?.digest_time ?? "08:00",
     digest_day: prefs?.digest_day ?? 1,
+    timezone: userResult.data?.timezone ?? "UTC",
     inbound_address: inboundAddress,
   });
 }
 
-/** PATCH /api/preferences — update delivery schedule */
+/** PATCH /api/preferences — update delivery schedule and/or timezone */
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,27 +49,54 @@ export async function PATCH(request: NextRequest) {
     digest_frequency?: string;
     digest_time?: string;
     digest_day?: number;
+    timezone?: string;
   };
 
-  const allowed = ["daily", "weekly", "off"];
-  if (body.digest_frequency && !allowed.includes(body.digest_frequency)) {
+  const allowedFreqs = ["daily", "weekly", "off"];
+  if (body.digest_frequency && !allowedFreqs.includes(body.digest_frequency)) {
     return NextResponse.json({ error: "Invalid digest_frequency" }, { status: 400 });
   }
 
-  const service = createServiceClient();
-  const { error } = await service
-    .from("user_preferences")
-    .upsert(
-      {
-        user_id: user.id,
-        ...(body.digest_frequency !== undefined && { digest_frequency: body.digest_frequency }),
-        ...(body.digest_time !== undefined && { digest_time: body.digest_time }),
-        ...(body.digest_day !== undefined && { digest_day: body.digest_day }),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+  // Basic IANA timezone validation — must contain no spaces and at least one "/"
+  // (or be exactly "UTC"). Prevents arbitrary string injection.
+  if (body.timezone !== undefined) {
+    const tz = body.timezone;
+    if (tz !== "UTC" && (tz.includes(" ") || !tz.includes("/"))) {
+      return NextResponse.json({ error: "Invalid timezone" }, { status: 400 });
+    }
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const service = createServiceClient();
+
+  // Preferences (digest_frequency, digest_time, digest_day) → user_preferences
+  const hasPrefsChange =
+    body.digest_frequency !== undefined ||
+    body.digest_time !== undefined ||
+    body.digest_day !== undefined;
+
+  if (hasPrefsChange) {
+    const { error } = await service
+      .from("user_preferences")
+      .upsert(
+        {
+          user_id: user.id,
+          ...(body.digest_frequency !== undefined && { digest_frequency: body.digest_frequency }),
+          ...(body.digest_time !== undefined && { digest_time: body.digest_time }),
+          ...(body.digest_day !== undefined && { digest_day: body.digest_day }),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (body.timezone !== undefined) {
+    const { error } = await service
+      .from("users")
+      .update({ timezone: body.timezone, updated_at: new Date().toISOString() })
+      .eq("id", user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,6 +15,7 @@ interface DeliveryScheduleFormProps {
   initialFrequency: string;
   initialTime: string;
   initialDay: number;
+  initialTimezone: string;
 }
 
 const DAYS = [
@@ -32,6 +33,33 @@ const TIMES = [
   "12:00", "14:00", "16:00", "18:00", "20:00", "22:00",
 ];
 
+// Common IANA timezones — enough for global coverage without a 500-item dropdown.
+const TIMEZONES = [
+  { value: "UTC",                   label: "UTC" },
+  { value: "America/New_York",      label: "New York (ET)" },
+  { value: "America/Chicago",       label: "Chicago (CT)" },
+  { value: "America/Denver",        label: "Denver (MT)" },
+  { value: "America/Los_Angeles",   label: "Los Angeles (PT)" },
+  { value: "America/Toronto",       label: "Toronto (ET)" },
+  { value: "America/Sao_Paulo",     label: "São Paulo (BRT)" },
+  { value: "Europe/London",         label: "London (GMT/BST)" },
+  { value: "Europe/Paris",          label: "Paris (CET)" },
+  { value: "Europe/Berlin",         label: "Berlin (CET)" },
+  { value: "Europe/Moscow",         label: "Moscow (MSK)" },
+  { value: "Africa/Cairo",          label: "Cairo (EET)" },
+  { value: "Asia/Jerusalem",        label: "Jerusalem (IST)" },
+  { value: "Asia/Dubai",            label: "Dubai (GST)" },
+  { value: "Asia/Kolkata",          label: "Mumbai / Delhi (IST)" },
+  { value: "Asia/Bangkok",          label: "Bangkok (ICT)" },
+  { value: "Asia/Singapore",        label: "Singapore (SGT)" },
+  { value: "Asia/Shanghai",         label: "Shanghai (CST)" },
+  { value: "Asia/Tokyo",            label: "Tokyo (JST)" },
+  { value: "Australia/Sydney",      label: "Sydney (AEST)" },
+  { value: "Pacific/Auckland",      label: "Auckland (NZST)" },
+];
+
+const KNOWN_VALUES = new Set(TIMEZONES.map((t) => t.value));
+
 function formatTime(t: string) {
   const [h] = t.split(":").map(Number);
   const period = h >= 12 ? "pm" : "am";
@@ -43,11 +71,36 @@ export function DeliveryScheduleForm({
   initialFrequency,
   initialTime,
   initialDay,
+  initialTimezone,
 }: DeliveryScheduleFormProps) {
   const [frequency, setFrequency] = useState(initialFrequency);
-  const [time, setTime] = useState(initialTime);
-  const [day, setDay] = useState(initialDay);
-  const [saving, setSaving] = useState(false);
+  const [time, setTime]           = useState(initialTime);
+  const [day, setDay]             = useState(initialDay);
+  const [timezone, setTimezone]   = useState(initialTimezone);
+  const [saving, setSaving]       = useState(false);
+
+  // On first mount, auto-detect browser timezone if the stored value is still
+  // the default "UTC" and the browser reports something different.
+  useEffect(() => {
+    if (initialTimezone === "UTC") {
+      try {
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (browserTz && browserTz !== "UTC") {
+          setTimezone(browserTz);
+        }
+      } catch {
+        // Intl not available — keep UTC
+      }
+    }
+  }, [initialTimezone]);
+
+  // Resolve which label/value to show for the current timezone.
+  // If it's a known value, show it normally.
+  // If it's an unknown IANA zone (e.g. "America/Indiana/Indianapolis"),
+  // show a fallback entry so the select isn't blank.
+  const selectOptions = KNOWN_VALUES.has(timezone)
+    ? TIMEZONES
+    : [{ value: timezone, label: timezone }, ...TIMEZONES];
 
   async function handleSave() {
     setSaving(true);
@@ -55,7 +108,12 @@ export function DeliveryScheduleForm({
       const res = await fetch("/api/preferences", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ digest_frequency: frequency, digest_time: time, digest_day: day }),
+        body: JSON.stringify({
+          digest_frequency: frequency,
+          digest_time: time,
+          digest_day: day,
+          timezone,
+        }),
       });
       if (!res.ok) throw new Error("Failed to save");
       toast.success("Delivery schedule saved");
@@ -109,7 +167,7 @@ export function DeliveryScheduleForm({
           </div>
 
           {/* Day — only for weekly */}
-          {(frequency === "weekly") && (
+          {frequency === "weekly" && (
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">Day</p>
               <Select value={String(day)} onValueChange={(v) => setDay(Number(v))}>
@@ -135,6 +193,21 @@ export function DeliveryScheduleForm({
               <SelectContent>
                 {TIMES.map((t) => (
                   <SelectItem key={t} value={t}>{formatTime(t)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Timezone */}
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">Timezone</p>
+            <Select value={timezone} onValueChange={(v) => v && setTimezone(v)}>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectOptions.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

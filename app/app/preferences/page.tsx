@@ -26,7 +26,7 @@ export default async function PreferencesPage() {
       .maybeSingle(),
     service
       .from("users")
-      .select("inbound_slug")
+      .select("inbound_slug, timezone")
       .eq("id", user.id)
       .maybeSingle(),
     service
@@ -39,6 +39,7 @@ export default async function PreferencesPage() {
 
   const prefs = prefsResult.data;
   const inboundSlug = userResult.data?.inbound_slug ?? null;
+  const timezone    = userResult.data?.timezone ?? "UTC";
   const inboundAddress = inboundSlug
     ? `${inboundSlug}@${config.postmark.inboundDomain}`
     : null;
@@ -87,6 +88,7 @@ export default async function PreferencesPage() {
           initialFrequency={prefs?.digest_frequency ?? "daily"}
           initialTime={prefs?.digest_time ?? "08:00"}
           initialDay={prefs?.digest_day ?? 1}
+          initialTimezone={timezone}
         />
       </section>
 
