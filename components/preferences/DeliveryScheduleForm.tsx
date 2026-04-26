@@ -28,10 +28,9 @@ const DAYS = [
   { value: 6, label: "Saturday" },
 ];
 
-const TIMES = [
-  "06:00", "07:00", "08:00", "09:00", "10:00",
-  "12:00", "14:00", "16:00", "18:00", "20:00", "22:00",
-];
+const TIMES = Array.from({ length: 24 }, (_, h) =>
+  `${String(h).padStart(2, "0")}:00`
+);
 
 // Common IANA timezones — enough for global coverage without a 500-item dropdown.
 const TIMEZONES = [
