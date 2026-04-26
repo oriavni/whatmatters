@@ -8,6 +8,7 @@ import { rssFetchAll } from "@/lib/inngest/functions/rss-fetch";
 import { rssFetchOne } from "@/lib/inngest/functions/rss-fetch-one";
 import { feedbackProcess } from "@/lib/inngest/functions/feedback-process";
 import { audioGenerate } from "@/lib/inngest/functions/audio-generate";
+import { digestSchedule } from "@/lib/inngest/functions/digest-schedule";
 
 // Required: prevents Next.js/Turbopack from statically analysing this route
 // at build/compile time with a frozen process.env snapshot. Without this,
@@ -26,5 +27,6 @@ export const { GET, POST, PUT } = serve({
     rssFetchOne,
     feedbackProcess,
     audioGenerate,
+    digestSchedule,
   ],
 });

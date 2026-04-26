@@ -22,13 +22,26 @@ export async function isUserPremium(userId: string): Promise<boolean> {
       .single(),
     supabase
       .from("subscriptions")
-      .select("status")
+      .select("status, trial_end")
       .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle(),
+      .maybeSingle() as unknown as Promise<{
+        data: { status: string; trial_end: string | null } | null;
+        error: unknown;
+      }>,
   ]);
 
-  return (userRow?.is_premium_override === true) || (subRow !== null);
+  if (userRow?.is_premium_override === true) return true;
+  if (!subRow) return false;
+
+  // Active paid subscription
+  if (subRow.status === "active") return true;
+
+  // Within trial window
+  if (subRow.status === "trialing" && subRow.trial_end) {
+    return new Date(subRow.trial_end) > new Date();
+  }
+
+  return false;
 }
 
 export async function getMonthlyAudioCount(userId: string): Promise<number> {
