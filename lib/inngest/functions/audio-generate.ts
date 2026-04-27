@@ -14,6 +14,7 @@ import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateAudioForDigest } from "@/lib/audio/generate";
 import { sendEmail } from "@/lib/email/postmark";
+import { writeJobLog } from "@/lib/inngest/log";
 
 interface AudioGenerateEvent {
   audio_digest_id: string;
@@ -36,16 +37,24 @@ export const audioGenerate = inngest.createFunction(
       limit: 3, // TTS can run in parallel across users
     },
     onFailure: async ({ event, error }) => {
-      const { audio_digest_id } = (event.data.event as { data: AudioGenerateEvent }).data;
+      const { audio_digest_id, user_id, digest_id } = (event.data.event as { data: AudioGenerateEvent }).data;
+      const errorMsg = (error as Error | undefined)?.message ?? "Unknown error";
       const supabase = createServiceClient();
       await supabase
         .from("audio_digests")
         .update({
           status: "failed",
-          error_message: error?.message ?? "Unknown error",
+          error_message: errorMsg,
           updated_at: new Date().toISOString(),
         })
         .eq("id", audio_digest_id);
+      await writeJobLog({
+        jobName: "audio-generate",
+        status: "failed",
+        userId: user_id,
+        error: errorMsg,
+        metadata: { audio_digest_id, digest_id },
+      });
     },
   },
   async ({ event, step }) => {

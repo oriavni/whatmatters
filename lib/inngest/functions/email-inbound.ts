@@ -18,6 +18,7 @@ import { identifySource } from "@/lib/ingestion/identify-source";
 import { cleanHtml, excerptText, truncateText } from "@/lib/ingestion/clean-html";
 import { forwardConfirmationEmail } from "@/lib/ingestion/forward-confirmation";
 import { detectPromotional } from "@/lib/ingestion/detect-promotional";
+import { writeJobLog } from "@/lib/inngest/log";
 
 interface EmailInboundEvent {
   raw_item_id: string;
@@ -32,6 +33,17 @@ export const emailInbound = inngest.createFunction(
     name: "Process Inbound Email",
     triggers: [{ event: "email/inbound" }],
     retries: 3,
+    onFailure: async ({ event, error }) => {
+      const { raw_item_id, user_id } = (event.data.event as { data: EmailInboundEvent }).data;
+      const errorMsg = (error as Error | undefined)?.message ?? "Unknown error";
+      await writeJobLog({
+        jobName: "email-inbound",
+        status: "failed",
+        userId: user_id,
+        error: errorMsg,
+        metadata: { raw_item_id },
+      });
+    },
   },
   async ({ event, step }) => {
     const { raw_item_id, user_id, sender_email, sender_name } =

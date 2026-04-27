@@ -17,6 +17,7 @@ import { clusterItems } from "@/lib/digest/cluster";
 import { scoreClusters } from "@/lib/digest/score";
 import { synthesizeClusters } from "@/lib/digest/synthesize";
 import { composeDigest } from "@/lib/digest/compose";
+import { writeJobLog } from "@/lib/inngest/log";
 
 interface DigestGenerateEvent {
   user_id: string;
@@ -38,16 +39,27 @@ export const digestGenerate = inngest.createFunction(
     },
     // If all retries are exhausted, mark any stuck digest row as failed so the
     // user can click "Read now" again without hitting the 409 guard.
-    onFailure: async ({ event, step }) => {
-      const user_id = (event.data.event as { data: DigestGenerateEvent }).data
-        .user_id;
+    onFailure: async ({ event, error, step }) => {
+      const { user_id } = (event.data.event as { data: DigestGenerateEvent }).data;
+      const errorMsg = (error as Error | undefined)?.message ?? "Unknown error";
       await step.run("mark-digest-failed-on-crash", async () => {
         const supabase = createServiceClient();
+        const now = new Date().toISOString();
         await supabase
           .from("digests")
-          .update({ status: "failed" })
+          .update({
+            status: "failed",
+            error_message: errorMsg,
+            finished_at: now,
+          })
           .eq("user_id", user_id)
           .in("status", ["pending", "generating"]);
+        await writeJobLog({
+          jobName: "digest-generate",
+          status: "failed",
+          userId: user_id,
+          error: errorMsg,
+        });
       });
     },
   },
@@ -78,6 +90,12 @@ export const digestGenerate = inngest.createFunction(
     });
 
     if (itemIds.length === 0) {
+      await writeJobLog({
+        jobName: "digest-generate",
+        status: "done",
+        userId: user_id,
+        metadata: { reason: "no-items", trigger },
+      });
       return { status: "no-items", user_id };
     }
 
@@ -91,6 +109,7 @@ export const digestGenerate = inngest.createFunction(
           status: "generating",
           period_start: periodStart,
           period_end: periodEnd,
+          started_at: new Date().toISOString(),
           metadata: { trigger, item_count: itemIds.length },
         })
         .select("id")
@@ -108,10 +127,18 @@ export const digestGenerate = inngest.createFunction(
     if (clusterIds.length === 0) {
       await step.run("mark-failed", async () => {
         const supabase = createServiceClient();
+        const now = new Date().toISOString();
         await supabase
           .from("digests")
-          .update({ status: "failed" })
+          .update({ status: "failed", error_message: "No clusters produced from items", finished_at: now })
           .eq("id", digestId);
+        await writeJobLog({
+          jobName: "digest-generate",
+          status: "failed",
+          userId: user_id,
+          error: "No clusters produced from items",
+          metadata: { digest_id: digestId },
+        });
       });
       return { status: "no-clusters", digest_id: digestId };
     }
@@ -183,7 +210,18 @@ export const digestGenerate = inngest.createFunction(
     if (activeClusterIds.length === 0) {
       await step.run("mark-failed-no-active-clusters", async () => {
         const supabase = createServiceClient();
-        await supabase.from("digests").update({ status: "failed" }).eq("id", digestId);
+        const now = new Date().toISOString();
+        await supabase
+          .from("digests")
+          .update({ status: "failed", error_message: "All clusters suppressed by user preferences", finished_at: now })
+          .eq("id", digestId);
+        await writeJobLog({
+          jobName: "digest-generate",
+          status: "failed",
+          userId: user_id,
+          error: "All clusters suppressed by user preferences",
+          metadata: { digest_id: digestId },
+        });
       });
       return { status: "no-clusters-after-suppression", digest_id: digestId };
     }

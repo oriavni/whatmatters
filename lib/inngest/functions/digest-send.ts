@@ -11,6 +11,7 @@
 import * as React from "react";
 import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
+import { writeJobLog } from "@/lib/inngest/log";
 import { renderEmail } from "@/lib/email/render";
 import { sendEmail } from "@/lib/email/postmark";
 import { DigestEmail, type DigestClusterForEmail } from "@/lib/email/templates/digest";
@@ -28,6 +29,25 @@ export const digestSend = inngest.createFunction(
     name: "Send Digest Email",
     triggers: [{ event: "digest/send" }],
     retries: 3,
+    // If all retries exhausted, mark digest failed so it's visible in admin
+    // and doesn't stay stuck in status='ready' forever.
+    onFailure: async ({ event, error }) => {
+      const { digest_id, user_id } = (event.data.event as { data: DigestSendEvent }).data;
+      const errorMsg = (error as Error | undefined)?.message ?? "Unknown error";
+      const supabase = createServiceClient();
+      const now = new Date().toISOString();
+      await supabase
+        .from("digests")
+        .update({ status: "failed", error_message: `send failed: ${errorMsg}`, finished_at: now })
+        .eq("id", digest_id);
+      await writeJobLog({
+        jobName: "digest-send",
+        status: "failed",
+        userId: user_id,
+        error: errorMsg,
+        metadata: { digest_id },
+      });
+    },
   },
   async ({ event, step }) => {
     const { digest_id, user_id } = event.data as DigestSendEvent;
@@ -177,11 +197,13 @@ export const digestSend = inngest.createFunction(
     // ── Step 4: Mark sent ─────────────────────────────────────────────────
     await step.run("mark-sent", async () => {
       const supabase = createServiceClient();
+      const now = new Date().toISOString();
       await supabase
         .from("digests")
         .update({
           status: "sent",
-          sent_at: new Date().toISOString(),
+          sent_at: now,
+          finished_at: now,
           postmark_message_id: messageId,
           html_body: html,
         })

@@ -9,13 +9,14 @@ import { FlagsPanel } from "@/components/admin/FlagsPanel";
 export const metadata: Metadata = { title: "Admin — WhatMatters" };
 
 const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "users", label: "Users" },
-  { key: "inbound", label: "Inbound" },
-  { key: "replies", label: "Replies" },
-  { key: "audio", label: "Audio Briefs" },
-  { key: "pricing", label: "Pricing" },
-  { key: "flags", label: "Flags" },
+  { key: "overview",  label: "Overview" },
+  { key: "users",     label: "Users" },
+  { key: "digests",   label: "Digests" },
+  { key: "inbound",   label: "Inbound" },
+  { key: "replies",   label: "Replies" },
+  { key: "audio",     label: "Audio Briefs" },
+  { key: "pricing",   label: "Pricing" },
+  { key: "flags",     label: "Flags" },
 ] as const;
 
 type Tab = typeof TABS[number]["key"];
@@ -112,6 +113,36 @@ export default async function AdminPage(props: {
       for (const d of lastDigests ?? []) {
         if (!lastDigestByUser.has(d.user_id)) lastDigestByUser.set(d.user_id, d.sent_at as string);
       }
+    }
+  }
+
+  // ── Digests tab ─────────────────────────────────────────────────────────────
+  let digestRows: Array<{
+    id: string; user_id: string; subject: string | null; status: string;
+    started_at: string | null; finished_at: string | null;
+    error_message: string | null; created_at: string;
+  }> = [];
+  let digestUserEmails = new Map<string, string>();
+  let digestCounts: { sent: number; failed: number; generating: number } = { sent: 0, failed: 0, generating: 0 };
+
+  if (tab === "digests") {
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const [rowsResult, sentCount, failedCount, generatingCount] = await Promise.all([
+      supabase
+        .from("digests")
+        .select("id, user_id, subject, status, started_at, finished_at, error_message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase.from("digests").select("*", { count: "exact", head: true }).eq("status", "sent").gte("created_at", oneDayAgo),
+      supabase.from("digests").select("*", { count: "exact", head: true }).eq("status", "failed").gte("created_at", oneDayAgo),
+      supabase.from("digests").select("*", { count: "exact", head: true }).in("status", ["pending", "generating"]),
+    ]);
+    digestRows = (rowsResult.data ?? []) as unknown as typeof digestRows;
+    digestCounts = { sent: sentCount.count ?? 0, failed: failedCount.count ?? 0, generating: generatingCount.count ?? 0 };
+    const uids = [...new Set(digestRows.map((d) => d.user_id))];
+    if (uids.length > 0) {
+      const { data: uRows } = await supabase.from("users").select("id, email").in("id", uids);
+      digestUserEmails = new Map((uRows ?? []).map((u) => [u.id, u.email]));
     }
   }
 
@@ -331,6 +362,66 @@ export default async function AdminPage(props: {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Digests ───────────────────────────────────────────────────────── */}
+        {tab === "digests" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-4">
+              <MetricCard label="Sent (24h)" value={digestCounts.sent} />
+              <MetricCard label="Failed (24h)" value={digestCounts.failed} />
+              <MetricCard label="In-flight now" value={digestCounts.generating} />
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Last 100 digests across all users</p>
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      {["User", "Subject", "Status", "Started", "Duration", "Error"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {digestRows.map((d) => (
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {digestUserEmails.get(d.user_id) ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 max-w-xs truncate text-xs">
+                          {d.subject ?? <span className="text-muted-foreground italic">pending</span>}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                            d.status === "sent"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800"
+                              : d.status === "failed"
+                              ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+                              : d.status === "generating"
+                              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800"
+                              : "bg-muted text-muted-foreground border-border"
+                          }`}>{d.status}</span>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDateTime(d.started_at ?? d.created_at)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDuration(d.started_at ?? d.created_at, d.finished_at)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-destructive max-w-xs truncate">
+                          {d.error_message ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    {digestRows.length === 0 && (
+                      <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">No digests yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

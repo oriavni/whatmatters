@@ -14,7 +14,7 @@ export const AUDIO_MONTHLY_CAP = 20;
 export async function isUserPremium(userId: string): Promise<boolean> {
   const supabase = createServiceClient();
 
-  const [{ data: userRow }, { data: subRow }] = await Promise.all([
+  const [{ data: userRow }, subResult] = await Promise.all([
     supabase
       .from("users")
       .select("is_premium_override")
@@ -26,18 +26,34 @@ export async function isUserPremium(userId: string): Promise<boolean> {
       .eq("user_id", userId)
       .maybeSingle() as unknown as Promise<{
         data: { status: string; trial_end: string | null } | null;
-        error: unknown;
+        error: { message: string; code: string } | null;
       }>,
   ]);
 
   if (userRow?.is_premium_override === true) return true;
+
+  // If the subscriptions query errored (e.g. migration not yet applied, network
+  // issue), fall back to a simpler status-only query so active users are not
+  // accidentally blocked.
+  if (subResult.error) {
+    const { data: fallback } = await supabase
+      .from("subscriptions")
+      .select("status")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return fallback?.status === "active" || fallback?.status === "trialing";
+  }
+
+  const subRow = subResult.data;
   if (!subRow) return false;
 
   // Active paid subscription
   if (subRow.status === "active") return true;
 
   // Within trial window
-  if (subRow.status === "trialing" && subRow.trial_end) {
+  if (subRow.status === "trialing") {
+    // trial_end not set means the migration backfill hasn't run yet — treat as in-trial
+    if (!subRow.trial_end) return true;
     return new Date(subRow.trial_end) > new Date();
   }
 

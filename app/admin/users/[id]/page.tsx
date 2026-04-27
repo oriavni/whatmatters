@@ -16,6 +16,12 @@ function formatDate(d: string | null | undefined) {
   });
 }
 
+function formatDuration(start: string | null | undefined, end: string | null | undefined) {
+  if (!start || !end) return "—";
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
@@ -46,7 +52,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
     supabase.from("sources").select("*").eq("user_id", id).order("created_at", { ascending: false }),
     supabase.from("raw_items").select("id, subject, sender_email, received_at, is_processed, source_id")
       .eq("user_id", id).order("received_at", { ascending: false }).limit(10),
-    supabase.from("digests").select("id, subject, status, sent_at, created_at")
+    supabase.from("digests").select("id, subject, status, sent_at, started_at, finished_at, error_message, created_at")
       .eq("user_id", id).order("created_at", { ascending: false }).limit(10),
     supabase.from("reply_actions").select("id, action, raw_reply, via, parsed_at")
       .eq("user_id", id).order("parsed_at", { ascending: false }).limit(10),
@@ -68,7 +74,11 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
   const sub = subResult.data;
   const sources = sourcesResult.data ?? [];
   const rawItems = rawItemsResult.data ?? [];
-  const digests = digestsResult.data ?? [];
+  const digests = (digestsResult.data ?? []) as unknown as Array<{
+    id: string; subject: string | null; status: string; sent_at: string | null;
+    started_at: string | null; finished_at: string | null;
+    error_message: string | null; created_at: string;
+  }>;
   const replies = repliesResult.data ?? [];
   const interests = interestsResult.data ?? [];
   const suppressions = suppressionsResult.data ?? [];
@@ -252,7 +262,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    {["Subject", "Status", "Sent", "Created"].map((h) => (
+                    {["Subject", "Status", "Duration", "Sent", "Error"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -260,18 +270,25 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
                 <tbody className="divide-y divide-border">
                   {digests.map((d) => (
                     <tr key={d.id}>
-                      <td className="px-3 py-2 max-w-xs truncate">{d.subject ?? "(pending)"}</td>
+                      <td className="px-3 py-2 max-w-[180px] truncate text-xs">{d.subject ?? "(pending)"}</td>
                       <td className="px-3 py-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
                           d.status === "sent"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800"
                             : d.status === "failed"
                             ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+                            : d.status === "generating"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800"
                             : "bg-muted text-muted-foreground border-border"
                         }`}>{d.status}</span>
                       </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDuration(d.started_at ?? d.created_at, d.finished_at)}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(d.sent_at)}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(d.created_at)}</td>
+                      <td className="px-3 py-2 text-xs text-destructive max-w-[180px] truncate">
+                        {d.error_message ?? "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

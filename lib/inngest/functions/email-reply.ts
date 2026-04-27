@@ -17,6 +17,7 @@ import { generate } from "@/lib/llm/client";
 import { buildReplyParsingPrompt, type ParsedReply } from "@/lib/llm/prompts/parse-reply";
 import { sendEmail } from "@/lib/email/postmark";
 import { config } from "@/lib/config";
+import { writeJobLog } from "@/lib/inngest/log";
 
 interface ReplyEvent {
   digest_id: string;
@@ -182,6 +183,16 @@ export const emailReplyParse = inngest.createFunction(
     name: "Parse Email Reply Command",
     triggers: [{ event: "email/reply.parse" }],
     retries: 2,
+    onFailure: async ({ event, error }) => {
+      const { digest_id, from_address } = (event.data.event as { data: ReplyEvent }).data;
+      const errorMsg = (error as Error | undefined)?.message ?? "Unknown error";
+      await writeJobLog({
+        jobName: "email-reply-parse",
+        status: "failed",
+        error: errorMsg,
+        metadata: { digest_id, from_address },
+      });
+    },
   },
   async ({ event, step }) => {
     const { digest_id, from_address, raw_text } = event.data as ReplyEvent;
@@ -417,7 +428,19 @@ export const emailReplyParse = inngest.createFunction(
             .eq("digest_id", digest_id)
             .maybeSingle();
           if (existing) {
-            return { audioDigestId: existing.id, audioAlreadyExists: true };
+            if (existing.status !== "failed") {
+              return { audioDigestId: existing.id, audioAlreadyExists: true };
+            }
+            // Reset failed row so it can be retried
+            await supabase
+              .from("audio_digests")
+              .update({ status: "pending", error_message: null, updated_at: new Date().toISOString() })
+              .eq("id", existing.id);
+            await inngest.send({
+              name: "audio/generate",
+              data: { audio_digest_id: existing.id, user_id: userId, digest_id },
+            });
+            return { audioDigestId: existing.id };
           }
           const { data: audioRow } = await supabase
             .from("audio_digests")
