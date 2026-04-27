@@ -19,6 +19,8 @@ import { sendEmail } from "@/lib/email/postmark";
 import { config } from "@/lib/config";
 import { writeJobLog } from "@/lib/inngest/log";
 
+const APP_URL = config.app.url;
+
 interface ReplyEvent {
   digest_id: string;
   from_address: string;
@@ -148,15 +150,15 @@ function confirmationText(
       if ((extras as { audioPremiumBlocked?: boolean }).audioPremiumBlocked) {
         const reason = (extras as { audioBlockReason?: string }).audioBlockReason;
         return {
-          subject: "Brief: Audio Briefs are a premium feature",
+          subject: "Brief: Audio Briefs are a Pro feature",
           text: reason === "cap_reached"
             ? "You've reached your monthly audio limit (20 per month). Your limit resets next month."
-            : "Audio Briefs are available on the Pro plan. Upgrade at getupto.io/pricing to listen to your digests.",
+            : `Audio Briefs are available on the Pro plan. Upgrade at ${APP_URL}/pricing to listen to your digests.`,
         };
       }
       return {
         subject: "Brief: generating your audio",
-        text: "On it — your audio brief is being generated. It'll be ready in your app in about 30 seconds.\n\nhttps://www.getupto.io/app/audio-briefs",
+        text: `On it — your audio brief is being generated. It'll be ready in your app in about 30 seconds.\n\n${APP_URL}/app/audio-briefs`,
       };
     default:
       return {
@@ -164,10 +166,12 @@ function confirmationText(
         text: [
           "I wasn't sure what you meant. Here are the things you can reply with:",
           "",
-          "  • \"more [topic]\" — get more coverage of a topic",
+          "  • \"more [topic]\" — get more on a topic",
+          "  • \"save [topic]\" — save a story",
           "  • \"ignore [topic]\" — see less of a topic",
           "  • \"link to [topic]\" — get the original article link",
           "  • \"mute [source name]\" — stop seeing content from a source",
+          "  • \"listen\" or \"audio\" — generate an audio version of this Brief",
           "  • \"read now\" — generate a fresh digest right now",
           "  • \"daily\" / \"weekly on monday\" — change your delivery schedule",
         ].join("\n"),
