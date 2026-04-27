@@ -13,6 +13,7 @@ import { Headphones, Loader2, AlertCircle, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAudioPlayer } from "@/lib/audio/player-context";
+import { toast } from "sonner";
 
 interface AudioBriefPlayerProps {
   digestId: string;
@@ -87,10 +88,10 @@ export function AudioBriefPlayer({
       if (res.ok) {
         setStatus(data.status);
       } else {
-        alert(data.error ?? "Failed to start generation");
+        toast.error(data.error ?? "Failed to start audio generation");
       }
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsStarting(false);
     }

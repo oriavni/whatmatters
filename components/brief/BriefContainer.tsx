@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { BriefHeader } from "./BriefHeader";
 import { BriefSkeleton } from "./BriefSkeleton";
 import { ReadNowButton } from "./ReadNowButton";
@@ -186,7 +187,13 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
           </PageHeader>
         </div>
         <p className="text-sm text-muted-foreground">
-          Add sources, then click{" "}
+          <Link
+            href="/app/sources"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Add sources
+          </Link>
+          , then click{" "}
           <strong className="font-medium text-foreground">Read now</strong> to
           generate your first Brief.
         </p>

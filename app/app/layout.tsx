@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isUserPremium } from "@/lib/audio/premium";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppClientLayout } from "@/components/layout/AppClientLayout";
@@ -21,9 +22,13 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  // Fetch premium status for sidebar pricing clarity.
+  // Non-blocking: defaults to false on error so layout never breaks.
+  const isPremium = await isUserPremium(user.id).catch(() => false);
+
   return (
     <SidebarProvider>
-      <AppSidebar userEmail={user.email ?? ""} />
+      <AppSidebar userEmail={user.email ?? ""} isPremium={isPremium} />
       <SidebarInset>
         <AppHeader />
         <AppClientLayout>

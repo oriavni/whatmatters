@@ -16,11 +16,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronsUpDown, LogOut, Settings, UserCircle } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, UserCircle, Zap } from "lucide-react";
 import Link from "next/link";
 
 interface UserNavProps {
   email: string;
+  isPremium: boolean;
 }
 
 function getInitials(email: string): string {
@@ -32,7 +33,7 @@ function getInitials(email: string): string {
   return local.slice(0, 2).toUpperCase();
 }
 
-export function UserNav({ email }: UserNavProps) {
+export function UserNav({ email, isPremium }: UserNavProps) {
   const initials = getInitials(email);
 
   return (
@@ -74,9 +75,14 @@ export function UserNav({ email }: UserNavProps) {
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {email}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate text-xs text-muted-foreground">
+                      {email}
+                    </span>
+                    <span className={`text-[10px] font-medium ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      {isPremium ? "Pro" : "Free plan"}
+                    </span>
+                  </div>
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
@@ -91,6 +97,12 @@ export function UserNav({ email }: UserNavProps) {
                 <Settings />
                 Preferences
               </DropdownMenuItem>
+              {!isPremium && (
+                <DropdownMenuItem render={<Link href="/pricing" />}>
+                  <Zap />
+                  Upgrade to Pro
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />

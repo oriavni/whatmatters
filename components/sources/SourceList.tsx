@@ -10,6 +10,8 @@ import {
   Play,
   Pencil,
   Trash2,
+  Check,
+  Copy,
 } from "lucide-react";
 import {
   Card,
@@ -29,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { AddSourceDialog } from "@/components/sources/AddSourceDialog";
 
 interface Source {
   id: string;
@@ -43,6 +46,8 @@ interface Source {
 
 interface SourceListProps {
   refreshKey?: number;
+  inboundAddress?: string;
+  onRefresh?: () => void;
 }
 
 function relativeTime(iso: string): string {
@@ -55,7 +60,7 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export function SourceList({ refreshKey = 0 }: SourceListProps) {
+export function SourceList({ refreshKey = 0, inboundAddress, onRefresh }: SourceListProps) {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,11 +119,7 @@ export function SourceList({ refreshKey = 0 }: SourceListProps) {
   }
 
   if (sources.length === 0) {
-    return (
-      <div className="py-12 text-center text-sm text-muted-foreground">
-        No sources yet. Add a newsletter or RSS feed to get started.
-      </div>
-    );
+    return <SourcesEmptyState inboundAddress={inboundAddress} onAdded={() => { load(); onRefresh?.(); }} />;
   }
 
   return (
@@ -338,5 +339,74 @@ function SourceRow({
         </DropdownMenu>
       </div>
     </li>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function InlineCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Address copied");
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0">
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      <span className="ml-1.5">{copied ? "Copied" : "Copy"}</span>
+    </Button>
+  );
+}
+
+function SourcesEmptyState({
+  inboundAddress,
+  onAdded,
+}: {
+  inboundAddress?: string;
+  onAdded?: () => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card divide-y">
+      {/* Path 1 — RSS feed */}
+      <div className="p-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <Rss className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Add an RSS feed</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Paste a website URL and we&apos;ll find the RSS feed automatically.
+        </p>
+        <AddSourceDialog onAdded={onAdded}>
+          <Button size="sm" variant="outline">Add RSS feed</Button>
+        </AddSourceDialog>
+      </div>
+
+      {/* Path 2 — newsletter forwarding */}
+      <div className="p-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <Mail className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Bring your newsletters</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Subscribe to any newsletter using this address and it will arrive in
+          your Brief automatically. For newsletters you already receive,
+          set up forwarding from your email client.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Some newsletters send a confirmation email when you subscribe with a
+          new address — you may need to confirm it before issues start arriving.
+        </p>
+        {inboundAddress && (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs font-mono bg-muted px-3 py-2 rounded-md truncate">
+              {inboundAddress}
+            </code>
+            <InlineCopyButton text={inboundAddress} />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

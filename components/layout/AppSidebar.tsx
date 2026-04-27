@@ -13,23 +13,24 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BookOpen, Archive, Radio, Compass, Settings, Headphones } from "lucide-react";
+import { BookOpen, Archive, Radio, Compass, Settings, Headphones, Lock, Zap } from "lucide-react";
 import { UserNav } from "./UserNav";
 
 const navItems = [
-  { label: "Brief",        href: "/app/brief",         icon: BookOpen   },
-  { label: "Archive",      href: "/app/archive",       icon: Archive    },
-  { label: "Audio Briefs", href: "/app/audio-briefs",  icon: Headphones },
-  { label: "Sources",      href: "/app/sources",       icon: Radio      },
-  { label: "Discover",     href: "/app/discover",      icon: Compass    },
-  { label: "Preferences",  href: "/app/preferences",   icon: Settings   },
+  { label: "Brief",        href: "/app/brief",         icon: BookOpen,   premiumOnly: false },
+  { label: "Archive",      href: "/app/archive",       icon: Archive,    premiumOnly: false },
+  { label: "Audio Briefs", href: "/app/audio-briefs",  icon: Headphones, premiumOnly: true  },
+  { label: "Sources",      href: "/app/sources",       icon: Radio,      premiumOnly: false },
+  { label: "Discover",     href: "/app/discover",      icon: Compass,    premiumOnly: false },
+  { label: "Preferences",  href: "/app/preferences",   icon: Settings,   premiumOnly: false },
 ] as const;
 
 interface AppSidebarProps {
   userEmail: string;
+  isPremium: boolean;
 }
 
-export function AppSidebar({ userEmail }: AppSidebarProps) {
+export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -54,15 +55,19 @@ export function AppSidebar({ userEmail }: AppSidebarProps) {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.href);
+                const locked = item.premiumOnly && !isPremium;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
                       isActive={isActive}
-                      tooltip={item.label}
+                      tooltip={locked ? `${item.label} — Pro` : item.label}
                     >
                       <Icon />
                       <span>{item.label}</span>
+                      {locked && (
+                        <Lock className="ml-auto size-3 text-muted-foreground/60 shrink-0" />
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -70,10 +75,25 @@ export function AppSidebar({ userEmail }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Upgrade nudge for free users */}
+        {!isPremium && (
+          <SidebarGroup className="mt-auto">
+            <SidebarGroupContent>
+              <Link
+                href="/pricing"
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                <Zap className="size-3.5 shrink-0" />
+                <span>Upgrade to Pro</span>
+              </Link>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
-        <UserNav email={userEmail} />
+        <UserNav email={userEmail} isPremium={isPremium} />
       </SidebarFooter>
     </Sidebar>
   );

@@ -1,26 +1,27 @@
-"use client";
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { config } from "@/lib/config";
+import { SourcesPageContent } from "@/components/sources/SourcesPageContent";
 
-import { useState } from "react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
-import { AddSourceDialog } from "@/components/sources/AddSourceDialog";
-import { SourceList } from "@/components/sources/SourceList";
+export const metadata: Metadata = { title: "Sources" };
 
-export default function SourcesPage() {
-  const [refreshKey, setRefreshKey] = useState(0);
+export default async function SourcesPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Sources"
-        description="Newsletters and RSS feeds in your Brief."
-      >
-        <AddSourceDialog onAdded={() => setRefreshKey((k) => k + 1)}>
-          <Button size="sm">Add source</Button>
-        </AddSourceDialog>
-      </PageHeader>
+  const { data: profile } = await supabase
+    .from("users")
+    .select("inbound_slug")
+    .eq("id", user.id)
+    .single();
 
-      <SourceList refreshKey={refreshKey} />
-    </div>
-  );
+  const inboundAddress = profile?.inbound_slug
+    ? `${profile.inbound_slug}@${config.postmark.inboundDomain}`
+    : `${user.id.replace(/-/g, "").slice(0, 16)}@${config.postmark.inboundDomain}`;
+
+  return <SourcesPageContent inboundAddress={inboundAddress} />;
 }

@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface AudioStatusResponse {
   status: "completed" | "pending" | "generating" | "not_found" | "failed";
@@ -38,7 +39,7 @@ export function GenerateAudioButton({
       // ── Step 1: Check current status ────────────────────────────
       const statusRes = await fetch(`/api/audio/${digestId}`);
       if (!statusRes.ok) {
-        alert("Could not check audio status. Please try again.");
+        toast.error("Could not check audio status. Please try again.");
         return;
       }
       const statusData: AudioStatusResponse = await statusRes.json();
@@ -64,11 +65,11 @@ export function GenerateAudioButton({
       if (genRes.ok) {
         router.push(`/app/audio-briefs/${digestId}`);
       } else {
-        alert(genData.error ?? "Failed to start generation");
+        toast.error(genData.error ?? "Failed to start audio generation");
         setLoading(false);
       }
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setLoading(false);
     }
   }

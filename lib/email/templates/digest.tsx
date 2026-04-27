@@ -86,6 +86,7 @@ const s = {
   footerText: { fontSize: "12px", color: "#aaaaaa", lineHeight: "1.6", margin: "0" },
   footerLink: { color: "#aaaaaa", textDecoration: "underline" },
   listenBtn: { display: "inline-block", marginTop: "12px", padding: "8px 16px", backgroundColor: "#111111", color: "#ffffff", borderRadius: "6px", fontSize: "13px", fontWeight: "600", textDecoration: "none" } as const,
+  readOnlineLink: { display: "inline-block", marginTop: "8px", fontSize: "12px", color: "#888888", textDecoration: "underline" } as const,
 } as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -115,8 +116,14 @@ export function DigestEmail({
           <Section style={s.header}>
             <Text style={s.wordmark}>Brief</Text>
             <Text style={s.dateLine}>{periodLabel}</Text>
-            {listenUrl && (
-              <Link href={listenUrl} style={s.listenBtn}>🎧 Listen to this Brief</Link>
+            {listenUrl ? (
+              <>
+                <Link href={listenUrl} style={s.listenBtn}>🎧 Listen to this Brief</Link>
+                <br />
+                <Link href={`${appUrl}/app/brief`} style={s.readOnlineLink}>Read online →</Link>
+              </>
+            ) : (
+              <Link href={`${appUrl}/app/brief`} style={s.readOnlineLink}>Read online →</Link>
             )}
           </Section>
 
@@ -161,15 +168,15 @@ export function DigestEmail({
           {/* Footer */}
           <Section style={s.footer}>
             <Text style={s.footerText}>
-              Reply to interact with your Brief — try &quot;more on [topic]&quot; or &quot;skip [topic]&quot;.
+              Reply to control your Brief:{" "}
+              <strong>&quot;more [topic]&quot;</strong> · <strong>&quot;save [topic]&quot;</strong> · <strong>&quot;ignore [topic]&quot;</strong>
+              {listenUrl ? <> · <strong>&quot;listen&quot;</strong></> : null}
             </Text>
             <Text style={{ ...s.footerText, marginTop: "8px" }}>
               Sent to {userEmail} ·{" "}
               <Link href={preferencesUrl} style={s.footerLink}>Preferences</Link>
               {" · "}
               <Link href={unsubscribeUrl} style={s.footerLink}>Unsubscribe</Link>
-              {" · "}
-              <Link href={`${appUrl}/app/brief`} style={s.footerLink}>View online</Link>
             </Text>
           </Section>
 
