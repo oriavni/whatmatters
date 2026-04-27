@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { BriefHeader } from "./BriefHeader";
 import { BriefSkeleton } from "./BriefSkeleton";
+import { BriefEmptyState } from "./BriefEmptyState";
 import { ReadNowButton } from "./ReadNowButton";
 import { StoryBlock } from "./StoryBlock";
 import { QuickMentions } from "./QuickMentions";
@@ -31,6 +31,8 @@ interface Interactions {
 interface BriefContainerProps {
   /** Reserved for /app/brief/[id] */
   digestId?: string;
+  /** Inbound email address for this user — shown in the empty state */
+  inboundAddress?: string;
 }
 
 async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interactions> {
@@ -51,11 +53,12 @@ async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interact
   }
 }
 
-export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
+export function BriefContainer({ digestId: _digestId, inboundAddress = "" }: BriefContainerProps) {
   const [digest, setDigest] = useState<BriefDigest | null>(null);
   const [interactions, setInteractions] = useState<Interactions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSampleGenerating, setIsSampleGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
@@ -150,6 +153,29 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
     startPolling();
   }
 
+  async function handleSample() {
+    setIsSampleGenerating(true);
+    setGenerationError(null);
+    try {
+      const res = await fetch("/api/brief/sample", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create sample");
+      // Sample is immediately ready — fetch it now instead of polling
+      const { digest: data, generationStatus } = await fetchCurrent();
+      if (data) {
+        const inter = await fetchInteractionsForDigest(data);
+        setDigest(data);
+        setInteractions(inter);
+      } else if (generationStatus === "generating") {
+        setIsGenerating(true);
+        startPolling();
+      }
+    } catch {
+      setGenerationError("Could not load sample Brief. Please try again.");
+    } finally {
+      setIsSampleGenerating(false);
+    }
+  }
+
   if (isLoading) return <BriefSkeleton />;
 
   if (generationError) {
@@ -182,21 +208,15 @@ export function BriefContainer({ digestId: _digestId }: BriefContainerProps) {
     return (
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
-          <PageHeader title="Your Brief" description="Nothing here yet.">
+          <PageHeader title="Your Brief">
             <ReadNowButton onGenerate={handleGenerate} />
           </PageHeader>
         </div>
-        <p className="text-sm text-muted-foreground">
-          <Link
-            href="/app/sources"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-          >
-            Add sources
-          </Link>
-          , then click{" "}
-          <strong className="font-medium text-foreground">Read now</strong> to
-          generate your first Brief.
-        </p>
+        <BriefEmptyState
+          inboundAddress={inboundAddress}
+          onSampleGenerate={handleSample}
+          isSampleGenerating={isSampleGenerating}
+        />
       </div>
     );
   }
