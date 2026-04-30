@@ -2,17 +2,31 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 interface ReadNowButtonProps {
   onGenerate?: () => void;
+  /** When true, the button is non-interactive and shows a tooltip explaining why */
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
-export function ReadNowButton({ onGenerate }: ReadNowButtonProps) {
+export function ReadNowButton({
+  onGenerate,
+  disabled = false,
+  disabledTooltip = "Add at least one source to generate your Brief",
+}: ReadNowButtonProps) {
   const [loading, setLoading] = useState(false);
 
   async function handleReadNow() {
+    if (disabled) return;
     setLoading(true);
     try {
       const res = await fetch("/api/brief/generate", { method: "POST" });
@@ -37,13 +51,15 @@ export function ReadNowButton({ onGenerate }: ReadNowButtonProps) {
     }
   }
 
-  return (
+  const btn = (
     <Button
       variant="outline"
       size="sm"
       onClick={handleReadNow}
-      disabled={loading}
+      disabled={loading || disabled}
       className="shrink-0 gap-1.5"
+      // Keep pointer-events on so the tooltip fires over a disabled button
+      style={disabled ? { pointerEvents: "none" } : undefined}
     >
       {loading ? (
         <Loader2 className="size-3 animate-spin" />
@@ -52,5 +68,19 @@ export function ReadNowButton({ onGenerate }: ReadNowButtonProps) {
       )}
       {loading ? "Generating…" : "Read now"}
     </Button>
+  );
+
+  if (!disabled) return btn;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        {/* span wrapper needed: tooltips don't fire on disabled form elements */}
+        <TooltipTrigger render={<span tabIndex={0} className="cursor-not-allowed inline-flex" />}>
+          {btn}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{disabledTooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

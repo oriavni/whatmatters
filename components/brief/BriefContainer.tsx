@@ -33,6 +33,8 @@ interface BriefContainerProps {
   digestId?: string;
   /** Inbound email address for this user — shown in the empty state */
   inboundAddress?: string;
+  /** Whether the user already has ≥1 active source (SSR value) */
+  hasSourcesInitial?: boolean;
 }
 
 async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interactions> {
@@ -53,13 +55,18 @@ async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interact
   }
 }
 
-export function BriefContainer({ digestId: _digestId, inboundAddress = "" }: BriefContainerProps) {
+export function BriefContainer({
+  digestId: _digestId,
+  inboundAddress = "",
+  hasSourcesInitial = false,
+}: BriefContainerProps) {
   const [digest, setDigest] = useState<BriefDigest | null>(null);
   const [interactions, setInteractions] = useState<Interactions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSampleGenerating, setIsSampleGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [hasSources, setHasSources] = useState(hasSourcesInitial);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
 
@@ -209,13 +216,19 @@ export function BriefContainer({ digestId: _digestId, inboundAddress = "" }: Bri
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
-            <ReadNowButton onGenerate={handleGenerate} />
+            <ReadNowButton
+              onGenerate={handleGenerate}
+              disabled={!hasSources}
+            />
           </PageHeader>
         </div>
         <BriefEmptyState
           inboundAddress={inboundAddress}
+          hasSources={hasSources}
           onSampleGenerate={handleSample}
           isSampleGenerating={isSampleGenerating}
+          onGenerate={handleGenerate}
+          onSourceAdded={() => setHasSources(true)}
         />
       </div>
     );

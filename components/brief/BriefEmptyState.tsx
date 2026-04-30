@@ -1,16 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Copy, Rss, Mail, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, Rss, Mail, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddSourceDialog } from "@/components/sources/AddSourceDialog";
 
-interface BriefEmptyStateProps {
-  inboundAddress: string;
-  onSampleGenerate: () => Promise<void>;
-  isSampleGenerating: boolean;
-}
-
+// ─── Inline copy helper ───────────────────────────────────────────────────────
 function InlineCopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -39,13 +34,88 @@ function InlineCopyButton({ text }: { text: string }) {
   );
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+type Phase = "onboarding" | "collapsing" | "ready";
+
+interface BriefEmptyStateProps {
+  inboundAddress: string;
+  hasSources: boolean;
+  onSampleGenerate: () => Promise<void>;
+  isSampleGenerating: boolean;
+  onGenerate: () => void;
+  /** Called immediately after a source is successfully added */
+  onSourceAdded?: () => void;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export function BriefEmptyState({
   inboundAddress,
+  hasSources,
   onSampleGenerate,
   isSampleGenerating,
+  onGenerate,
+  onSourceAdded,
 }: BriefEmptyStateProps) {
+  // Phase drives the animation: onboarding → collapsing (350ms) → ready
+  const [phase, setPhase] = useState<Phase>(hasSources ? "ready" : "onboarding");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (hasSources && phase === "onboarding") {
+      setPhase("collapsing");
+      timerRef.current = setTimeout(() => setPhase("ready"), 350);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [hasSources, phase]);
+
+  // ── Ready state: source added, waiting to generate ─────────────────────────
+  if (phase === "ready") {
+    return (
+      <div
+        className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+      >
+        {/* Success banner */}
+        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 flex items-start gap-3">
+          <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-green-900 dark:text-green-200">
+              Source added — ready to generate your first Brief
+            </p>
+            <p className="text-xs text-green-700/80 dark:text-green-400/80">
+              Your sources will be fetched and compiled into a single digest.
+            </p>
+          </div>
+        </div>
+
+        {/* Primary CTA */}
+        <Button
+          size="default"
+          className="w-full sm:w-auto"
+          onClick={onGenerate}
+        >
+          Generate your first Brief
+        </Button>
+
+        <p className="text-xs text-muted-foreground">
+          🎧 You&apos;ll be able to listen once your Brief is generated.
+        </p>
+      </div>
+    );
+  }
+
+  // ── Onboarding / collapsing state ─────────────────────────────────────────
   return (
-    <div className="space-y-8 max-w-lg">
+    <div
+      className="space-y-8"
+      style={{
+        opacity: phase === "collapsing" ? 0 : 1,
+        transform: phase === "collapsing" ? "translateY(-6px)" : "translateY(0)",
+        transition: "opacity 300ms ease, transform 300ms ease",
+        pointerEvents: phase === "collapsing" ? "none" : undefined,
+      }}
+    >
       {/* Title */}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">Create your first Brief</h2>
@@ -54,7 +124,7 @@ export function BriefEmptyState({
         </p>
       </div>
 
-      {/* Actions */}
+      {/* Action cards */}
       <div className="space-y-4">
 
         {/* 1 — RSS */}
@@ -69,7 +139,7 @@ export function BriefEmptyState({
                 Paste any website URL — we&apos;ll detect the feed automatically.
               </p>
             </div>
-            <AddSourceDialog>
+            <AddSourceDialog onAdded={onSourceAdded}>
               <Button size="sm" variant="outline">
                 Add RSS source
               </Button>

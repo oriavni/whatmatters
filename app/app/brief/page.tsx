@@ -13,15 +13,29 @@ export default async function BriefPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("inbound_slug")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, sourcesResult] = await Promise.all([
+    supabase
+      .from("users")
+      .select("inbound_slug")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("sources")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "active"),
+  ]);
 
-  const inboundAddress = profile?.inbound_slug
-    ? `${profile.inbound_slug}@${config.postmark.inboundDomain}`
+  const inboundAddress = profileResult.data?.inbound_slug
+    ? `${profileResult.data.inbound_slug}@${config.postmark.inboundDomain}`
     : `${user.id.replace(/-/g, "").slice(0, 16)}@${config.postmark.inboundDomain}`;
 
-  return <BriefContainer inboundAddress={inboundAddress} />;
+  const hasSourcesInitial = (sourcesResult.count ?? 0) > 0;
+
+  return (
+    <BriefContainer
+      inboundAddress={inboundAddress}
+      hasSourcesInitial={hasSourcesInitial}
+    />
+  );
 }
