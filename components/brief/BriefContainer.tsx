@@ -55,6 +55,17 @@ async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interact
   }
 }
 
+async function fetchFreshness(): Promise<number | null> {
+  try {
+    const res = await fetch("/api/brief/freshness");
+    if (!res.ok) return null;
+    const data = await res.json() as { newCount: number };
+    return data.newCount;
+  } catch {
+    return null;
+  }
+}
+
 export function BriefContainer({
   digestId: _digestId,
   inboundAddress = "",
@@ -67,6 +78,8 @@ export function BriefContainer({
   const [isSampleGenerating, setIsSampleGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [hasSources, setHasSources] = useState(hasSourcesInitial);
+  // null = still loading; number = resolved
+  const [newCount, setNewCount] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
 
@@ -94,7 +107,6 @@ export function BriefContainer({
     pollRef.current = setInterval(async () => {
       pollCountRef.current += 1;
 
-      // Safety timeout — stop if the job is taking too long
       if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
         stopPolling();
         setIsGenerating(false);
@@ -107,12 +119,13 @@ export function BriefContainer({
       const { digest: data, generationStatus } = await fetchCurrent();
 
       if (data) {
-        // Fetch interaction states for the newly arrived digest
         const inter = await fetchInteractionsForDigest(data);
         setDigest(data);
         setInteractions(inter);
         setIsGenerating(false);
         stopPolling();
+        // Refresh freshness after a digest lands so the button resets
+        fetchFreshness().then(setNewCount);
         return;
       }
 
@@ -130,27 +143,28 @@ export function BriefContainer({
         setIsGenerating(false);
         return;
       }
-      // generationStatus === "generating" → keep polling
     }, POLL_INTERVAL_MS);
   }, [fetchCurrent, stopPolling]);
 
   useEffect(() => {
-    fetchCurrent().then(async ({ digest: data, generationStatus }) => {
-      if (data) {
-        // Fetch interaction states before revealing the cards so buttons
-        // render with the correct initial state — no flash of inactive state.
-        const inter = await fetchInteractionsForDigest(data);
-        setDigest(data);
-        setInteractions(inter);
-      } else {
-        setDigest(null);
+    // Fetch digest + freshness in parallel on mount
+    Promise.all([fetchCurrent(), fetchFreshness()]).then(
+      async ([{ digest: data, generationStatus }, count]) => {
+        if (data) {
+          const inter = await fetchInteractionsForDigest(data);
+          setDigest(data);
+          setInteractions(inter);
+        } else {
+          setDigest(null);
+        }
+        setNewCount(count);
+        setIsLoading(false);
+        if (!data && generationStatus === "generating") {
+          setIsGenerating(true);
+          startPolling();
+        }
       }
-      setIsLoading(false);
-      if (!data && generationStatus === "generating") {
-        setIsGenerating(true);
-        startPolling();
-      }
-    });
+    );
     return stopPolling;
   }, [fetchCurrent, stopPolling, startPolling]);
 
@@ -166,7 +180,6 @@ export function BriefContainer({
     try {
       const res = await fetch("/api/brief/sample", { method: "POST" });
       if (!res.ok) throw new Error("Failed to create sample");
-      // Sample is immediately ready — fetch it now instead of polling
       const { digest: data, generationStatus } = await fetchCurrent();
       if (data) {
         const inter = await fetchInteractionsForDigest(data);
@@ -190,7 +203,7 @@ export function BriefContainer({
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
-            <ReadNowButton onGenerate={handleGenerate} />
+            <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
           </PageHeader>
         </div>
         <Alert variant="destructive">
@@ -219,6 +232,7 @@ export function BriefContainer({
             <ReadNowButton
               onGenerate={handleGenerate}
               disabled={!hasSources}
+              newCount={hasSources ? newCount : undefined}
             />
           </PageHeader>
         </div>
@@ -243,7 +257,7 @@ export function BriefContainer({
         <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
         <div className="flex items-center gap-2 shrink-0">
           <GenerateAudioButton digestId={digest.id} label="🎧 Listen" />
-          <ReadNowButton onGenerate={handleGenerate} />
+          <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
         </div>
       </div>
 
