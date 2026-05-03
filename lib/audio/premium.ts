@@ -75,7 +75,7 @@ export async function getMonthlyAudioCount(userId: string): Promise<number> {
 }
 
 /** Audio requires an active paid subscription or admin override — trial does not qualify. */
-async function isAudioPremium(userId: string): Promise<boolean> {
+export async function isAudioPremium(userId: string): Promise<boolean> {
   const supabase = createServiceClient();
 
   const [{ data: userRow }, { data: subRow }] = await Promise.all([
