@@ -14,7 +14,7 @@ export function SourceAttribution({ sources, className }: SourceAttributionProps
       {sources.map((s, i) => (
         <span key={s.id}>
           {i > 0 && " · "}
-          {s.url ? (
+          {s.url?.startsWith("http") ? (
             <a
               href={s.url}
               target="_blank"
