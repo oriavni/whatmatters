@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
+import { isUserPremium } from "@/lib/audio/premium";
 import { BriefContainer } from "@/components/brief/BriefContainer";
 
 export const metadata: Metadata = { title: "Brief" };
@@ -13,7 +14,7 @@ export default async function BriefPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileResult, sourcesResult] = await Promise.all([
+  const [profileResult, sourcesResult, isPremiumInitial] = await Promise.all([
     supabase
       .from("users")
       .select("inbound_slug")
@@ -24,6 +25,7 @@ export default async function BriefPage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("status", "active"),
+    isUserPremium(user.id),
   ]);
 
   const inboundAddress = profileResult.data?.inbound_slug
@@ -36,6 +38,7 @@ export default async function BriefPage() {
     <BriefContainer
       inboundAddress={inboundAddress}
       hasSourcesInitial={hasSourcesInitial}
+      isPremiumInitial={isPremiumInitial}
     />
   );
 }

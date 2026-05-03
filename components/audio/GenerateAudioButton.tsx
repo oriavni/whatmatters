@@ -1,42 +1,62 @@
 "use client";
 
-/**
- * GenerateAudioButton
- *
- * Idempotent: checks the current audio status via GET before initiating a new
- * generation job, so repeated or parallel clicks never leave the player in an
- * inconsistent state.
- *
- * Click flow:
- *   1. GET /api/audio/[digestId] — check existing status
- *   2. "completed" | "pending" | "generating"  → navigate directly to player
- *   3. "not_found"                              → POST to generate, then navigate
- */
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Headphones, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 interface AudioStatusResponse {
   status: "completed" | "pending" | "generating" | "not_found" | "failed";
 }
 
+interface GenerateAudioButtonProps {
+  digestId?: string;
+  /** Is the user on a premium or trial plan? */
+  isPremium: boolean;
+  /** Does a completed digest exist to generate audio from? */
+  hasDigest: boolean;
+  /** Does the user have at least one source? */
+  hasSources?: boolean;
+}
+
+function getDisabledTooltip({
+  hasSources,
+  hasDigest,
+  isPremium,
+}: {
+  hasSources: boolean;
+  hasDigest: boolean;
+  isPremium: boolean;
+}): string | null {
+  if (!hasSources) return "Generate a Brief first to listen";
+  if (!hasDigest) return "Generate a Brief to create an Audio version";
+  if (!isPremium) return "Upgrade to create an Audio Brief from your digest";
+  return null;
+}
+
 export function GenerateAudioButton({
   digestId,
-  label = "🎧 Generate",
-}: {
-  digestId: string;
-  label?: string;
-}) {
+  isPremium,
+  hasDigest,
+  hasSources = false,
+}: GenerateAudioButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const disabledTooltip = getDisabledTooltip({ hasSources, hasDigest, isPremium });
+  const isDisabled = disabledTooltip !== null;
+
   async function handleClick() {
+    if (isDisabled || loading || !digestId) return;
     setLoading(true);
     try {
-      // ── Step 1: Check current status ────────────────────────────
       const statusRes = await fetch(`/api/audio/${digestId}`);
       if (!statusRes.ok) {
         toast.error("Could not check audio status. Please try again.");
@@ -44,7 +64,6 @@ export function GenerateAudioButton({
       }
       const statusData: AudioStatusResponse = await statusRes.json();
 
-      // ── Step 2: Navigate directly if audio already exists ────────
       if (
         statusData.status === "completed" ||
         statusData.status === "pending" ||
@@ -54,7 +73,6 @@ export function GenerateAudioButton({
         return;
       }
 
-      // ── Step 3: Initiate generation for "not_found" (or "failed") ─
       const genRes = await fetch("/api/audio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,21 +92,36 @@ export function GenerateAudioButton({
     }
   }
 
-  return (
+  const btn = (
     <Button
       variant="outline"
       size="sm"
       onClick={handleClick}
-      disabled={loading}
+      disabled={loading || isDisabled}
+      className="shrink-0 gap-1.5"
+      style={isDisabled ? { pointerEvents: "none" } : undefined}
     >
       {loading ? (
-        <>
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Starting…
-        </>
+        <Loader2 className="size-3 animate-spin" />
       ) : (
-        label
+        <Headphones className="size-3" />
       )}
+      {loading ? "Starting…" : "Listen"}
     </Button>
   );
+
+  if (isDisabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger render={<span tabIndex={0} className="cursor-not-allowed inline-flex" />}>
+            {btn}
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{disabledTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return btn;
 }
