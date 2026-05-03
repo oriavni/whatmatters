@@ -49,7 +49,7 @@ interface BriefEmptyStateProps {
   newCount: number | null;
   onSampleGenerate: () => Promise<void>;
   isSampleGenerating: boolean;
-  onGenerate: () => void;
+  onGenerate: () => void | Promise<void>;
   /** Called immediately after a source is successfully added */
   onSourceAdded?: () => void;
 }

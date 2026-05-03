@@ -237,10 +237,33 @@ export function BriefContainer({
     return stopFreshnessPoll;
   }, [isLoading, digest, isGenerating, hasSources, lastDigestAt, newCount, stopFreshnessPoll]);
 
+  // Called by ReadNowButton — the API POST has already been made by the button itself
+  // before it calls this. We only need to update UI state and start polling.
   function handleGenerate() {
     setIsGenerating(true);
     setGenerationError(null);
     startPolling();
+  }
+
+  // Called by the first-time "Generate your first Brief" button (BriefEmptyState).
+  // ReadNowButton isn't in the picture here, so we must POST to the API ourselves.
+  async function handleFirstTimeGenerate() {
+    try {
+      const res = await fetch("/api/brief/generate", { method: "POST" });
+      if (res.status === 409) {
+        // A generation is already running — just start polling for it
+        handleGenerate();
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setGenerationError(body.error ?? "Failed to generate Brief. Please try again.");
+        return;
+      }
+      handleGenerate();
+    } catch {
+      setGenerationError("Failed to generate Brief. Please try again.");
+    }
   }
 
   async function handleSample() {
@@ -329,7 +352,7 @@ export function BriefContainer({
             newCount={newCount}
             onSampleGenerate={handleSample}
             isSampleGenerating={isSampleGenerating}
-            onGenerate={handleGenerate}
+            onGenerate={handleFirstTimeGenerate}
             onSourceAdded={() => setHasSources(true)}
           />
         )}
