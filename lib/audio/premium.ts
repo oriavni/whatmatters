@@ -74,11 +74,24 @@ export async function getMonthlyAudioCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** Audio requires an active paid subscription or admin override — trial does not qualify. */
+async function isAudioPremium(userId: string): Promise<boolean> {
+  const supabase = createServiceClient();
+
+  const [{ data: userRow }, { data: subRow }] = await Promise.all([
+    supabase.from("users").select("is_premium_override").eq("id", userId).single(),
+    supabase.from("subscriptions").select("status").eq("user_id", userId).maybeSingle(),
+  ]);
+
+  if (userRow?.is_premium_override === true) return true;
+  return subRow?.status === "active";
+}
+
 export async function canGenerateAudio(userId: string): Promise<{
   allowed: boolean;
   reason?: "not_premium" | "cap_reached";
 }> {
-  const premium = await isUserPremium(userId);
+  const premium = await isAudioPremium(userId);
   if (!premium) return { allowed: false, reason: "not_premium" };
 
   const count = await getMonthlyAudioCount(userId);
