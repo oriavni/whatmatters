@@ -1,6 +1,7 @@
 export interface BriefSource {
   id: string;
   name: string;
+  url: string | null;
 }
 
 export interface BriefCluster {

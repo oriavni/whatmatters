@@ -11,7 +11,23 @@ export function SourceAttribution({ sources, className }: SourceAttributionProps
 
   return (
     <p className={cn("text-xs text-muted-foreground", className)}>
-      {sources.map((s) => s.name).join(" · ")}
+      {sources.map((s, i) => (
+        <span key={s.id}>
+          {i > 0 && " · "}
+          {s.url ? (
+            <a
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground underline underline-offset-2 transition-colors"
+            >
+              {s.name}
+            </a>
+          ) : (
+            s.name
+          )}
+        </span>
+      ))}
     </p>
   );
 }

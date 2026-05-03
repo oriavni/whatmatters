@@ -72,9 +72,11 @@ export async function GET() {
 
   const { data: sources } = await service
     .from("sources")
-    .select("id, name")
+    .select("id, name, url")
     .in("id", sourceIds);
 
+  const sourceById = new Map((sources ?? []).map((s) => [s.id, { name: s.name, url: s.url }]));
+  // Keep backward-compat alias
   const sourceNameById = new Map((sources ?? []).map((s) => [s.id, s.name]));
 
   const itemById = new Map(
@@ -110,11 +112,15 @@ export async function GET() {
 
     // Unique sources by sourceId, preserving order
     const seen = new Set<string>();
-    const uniqueSources: { id: string; name: string }[] = [];
+    const uniqueSources: { id: string; name: string; url: string | null }[] = [];
     for (const item of itemDetails) {
       if (item.sourceId && !seen.has(item.sourceId)) {
         seen.add(item.sourceId);
-        uniqueSources.push({ id: item.sourceId, name: item.sourceName });
+        uniqueSources.push({
+          id: item.sourceId,
+          name: item.sourceName,
+          url: sourceById.get(item.sourceId)?.url ?? null,
+        });
       }
     }
 

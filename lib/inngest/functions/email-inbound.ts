@@ -126,12 +126,57 @@ export const emailInbound = inngest.createFunction(
       return excerptText(source, 200) ?? truncateText(source, 200) ?? null;
     });
 
-    // ── Step 5: Persist ───────────────────────────────────────────────────────
+    // ── Step 5: AI noise classification (runs only when rule-based check passes) ─
+    // Catches ambiguous emails that look legitimate (welcome messages, newsletter
+    // announcements, subscription confirmations) but carry no editorial value.
+    // Uses gpt-4o-mini for cost efficiency (~$0.0001 per email).
+    const isNoiseByAI = await step.run("classify-noise", async () => {
+      // Skip expensive AI call if rule-based detection already handles it
+      const rulesFlag = detectPromotional(rawItem.subject, bodyText, sender_email);
+      if (rulesFlag) return false; // already flagged — AI would agree
+
+      const bodySnippet = bodyText.slice(0, 800).trim();
+      if (!bodySnippet && !rawItem.subject) return false; // nothing to classify
+
+      try {
+        const { generate } = await import("@/lib/llm/client");
+        const result = await generate(
+          [
+            {
+              role: "system",
+              content:
+                "You classify emails as editorial content or noise. " +
+                "Editorial content = news, analysis, opinion, investigative journalism. " +
+                "Noise = welcome emails, subscription confirmations, newsletter announcements, marketing, promotions, app download requests. " +
+                'Reply with exactly one word: "editorial" or "noise".',
+            },
+            {
+              role: "user",
+              content: `Subject: ${rawItem.subject ?? "(none)"}\nFrom: ${sender_name} <${sender_email}>\n\n${bodySnippet}`,
+            },
+          ],
+          { model: "gpt-4o-mini", temperature: 0, maxTokens: 5 }
+        );
+        const verdict = result.content.trim().toLowerCase();
+        if (verdict === "noise") {
+          console.log("[email-inbound] AI flagged as noise:", rawItem.subject);
+          return true;
+        }
+        return false;
+      } catch (err) {
+        // AI failure is non-fatal — fall back to rule-based result only
+        console.warn("[email-inbound] AI classify failed, defaulting to not-noise:", err);
+        return false;
+      }
+    });
+
+    // ── Step 6: Persist ───────────────────────────────────────────────────────
     await step.run("persist-results", async () => {
       const supabase = createServiceClient();
       const now = new Date().toISOString();
 
-      const isPromotional = detectPromotional(rawItem.subject, bodyText, sender_email);
+      const isPromotional =
+        isNoiseByAI || detectPromotional(rawItem.subject, bodyText, sender_email);
       if (isPromotional) {
         console.log("[email-inbound] flagged as promotional:", rawItem.subject);
       }
