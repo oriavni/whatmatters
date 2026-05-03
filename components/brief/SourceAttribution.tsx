@@ -14,9 +14,9 @@ export function SourceAttribution({ sources, className }: SourceAttributionProps
       {sources.map((s, i) => (
         <span key={s.id}>
           {i > 0 && " · "}
-          {s.url?.startsWith("http") ? (
+          {s.url ? (
             <a
-              href={s.url}
+              href={s.url.startsWith("http") ? s.url : `mailto:${s.url}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground underline underline-offset-2 transition-colors"
