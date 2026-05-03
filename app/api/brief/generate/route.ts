@@ -29,6 +29,12 @@ export async function POST() {
     );
   }
 
+  // Guard: frozen accounts cannot generate.
+  const { isUserFrozen } = await import("@/lib/admin/freeze");
+  if (await isUserFrozen(user.id)) {
+    return NextResponse.json({ error: "Account suspended." }, { status: 403 });
+  }
+
   // Guard: ensure the user has at least one source. Without sources, generation
   // can still fire (orphaned raw_items survive source deletion) which produces
   // confusing results.

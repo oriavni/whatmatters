@@ -202,7 +202,7 @@ export const emailReplyParse = inngest.createFunction(
     const { digest_id, from_address, raw_text } = event.data as ReplyEvent;
 
     // ── Step 1: Load context ────────────────────────────────────────────────
-    const { userId, userEmail, digestSubject, clusters } = await step.run(
+    const { isFrozen, userId, userEmail, digestSubject, clusters } = await step.run(
       "load-context",
       async () => {
         const supabase = createServiceClient();
@@ -226,6 +226,9 @@ export const emailReplyParse = inngest.createFunction(
         if (userError || !userRow) {
           throw new Error(`load-context: user not found — ${userError?.message}`);
         }
+
+        const { isUserFrozen } = await import("@/lib/admin/freeze");
+        const isFrozen = await isUserFrozen(digest.user_id);
 
         // Load clusters with item source URLs for read_original + mute_source matching
         const { data: clusterRows } = await supabase
@@ -258,6 +261,7 @@ export const emailReplyParse = inngest.createFunction(
         }));
 
         return {
+          isFrozen,
           userId: digest.user_id,
           userEmail: userRow.email,
           digestSubject: digest.subject,
@@ -265,6 +269,8 @@ export const emailReplyParse = inngest.createFunction(
         };
       }
     );
+
+    if (isFrozen) return { skipped: true, reason: "frozen" };
 
     // ── Step 2: Parse intent via LLM ───────────────────────────────────────
     const parsed = await step.run("parse-intent", async () => {

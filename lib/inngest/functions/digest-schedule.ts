@@ -76,18 +76,24 @@ export const digestSchedule = inngest.createFunction(
             .neq("digest_frequency", "off"),
           supabase
             .from("users")
-            .select("id, timezone"),
+            .select("id, timezone, is_frozen" as "id, timezone"),
         ]);
 
       if (prefsErr) throw new Error(`find-due-users prefs: ${prefsErr.message}`);
       if (usersErr) throw new Error(`find-due-users users: ${usersErr.message}`);
 
-      // Build timezone lookup map
-      const tzMap = new Map(
-        (userRows ?? []).map((u) => [u.id, (u.timezone as string) || "UTC"])
-      );
+      // Build timezone lookup map + frozen set.
+      // The query selects "is_frozen" alongside "id, timezone" via a type cast
+      // (the column exists at runtime; TS types are updated after migration runs).
+      type UserRowRuntime = { id: string; timezone: string; is_frozen?: boolean };
+      const rows = (userRows ?? []) as unknown as UserRowRuntime[];
+
+      const tzMap = new Map(rows.map((u) => [u.id, u.timezone || "UTC"]));
+      const frozenSet = new Set(rows.filter((u) => u.is_frozen).map((u) => u.id));
 
       return (prefs ?? []).filter((pref) => {
+        if (!tzMap.has(pref.user_id)) return false; // unknown user
+        if (frozenSet.has(pref.user_id)) return false; // frozen — skip
         const tz = tzMap.get(pref.user_id) ?? "UTC";
         const utcHour = localHourToUtc(pref.digest_time ?? "07:00", tz);
 
