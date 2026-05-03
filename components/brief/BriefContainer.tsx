@@ -208,14 +208,15 @@ export function BriefContainer({
   }, [fetchCurrent, stopPolling, startPolling]);
 
   // ── Poll freshness while in "processing" state ───────────────────────────────
-  // Only active when: sources added, first-time user (no previous digest),
-  // no digest loaded, not generating, and items haven't arrived yet.
+  // Active for all first-time users (no previous digest) with no digest yet,
+  // regardless of hasSources — newsletter sources are auto-created by the backend
+  // when an inbound email arrives, so hasSources in UI state may still be false
+  // even though the DB already has items ready to generate.
   useEffect(() => {
     const shouldPoll =
       !isLoading &&
       !digest &&
       !isGenerating &&
-      hasSources &&
       lastDigestAt === null &&
       newCount === 0;
 
@@ -232,12 +233,16 @@ export function BriefContainer({
       if (result && result.newCount > 0) {
         setNewCount(result.newCount);
         setLastDigestAt(result.lastDigestAt);
+        // A source was auto-created by the email backend — reflect that in UI
+        // so the "You're ready" state renders correctly even if the user never
+        // explicitly added a source via the AddSourceDialog.
+        setHasSources(true);
         stopFreshnessPoll();
       }
     }, FRESHNESS_POLL_MS);
 
     return stopFreshnessPoll;
-  }, [isLoading, digest, isGenerating, hasSources, lastDigestAt, newCount, stopFreshnessPoll]);
+  }, [isLoading, digest, isGenerating, lastDigestAt, newCount, stopFreshnessPoll]);
 
   // Called by ReadNowButton — the API POST has already been made by the button itself
   // before it calls this. We only need to update UI state and start polling.
