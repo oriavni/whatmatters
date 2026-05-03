@@ -120,9 +120,10 @@ export const digestGenerate = inngest.createFunction(
     });
 
     // ── Step 3: Preprocess (deterministic) + LLM cluster (one call) ───────
-    const clusterIds = await step.run("cluster", () =>
+    const clusterResult = await step.run("cluster", () =>
       clusterItems(user_id, digestId, itemIds)
     );
+    const clusterIds = clusterResult.clusterIds;
 
     if (clusterIds.length === 0) {
       await step.run("mark-failed", async () => {
@@ -227,10 +228,26 @@ export const digestGenerate = inngest.createFunction(
     }
 
     // ── Step 5: Synthesize top 8 clusters (LLM, sequential) ──────────────
-    await step.run("synthesize", () => synthesizeClusters(activeClusterIds));
+    const synthResult = await step.run("synthesize", () =>
+      synthesizeClusters(activeClusterIds)
+    );
 
     // ── Step 6: Compose digest body (deterministic) ───────────────────────
     await step.run("compose", () => composeDigest(user_id, digestId));
+
+    // ── Step 6.5: Record cumulative LLM token usage ───────────────────────
+    // Type cast: llm_tokens_input/output columns added by migration 20260427000003;
+    // TS types update after `supabase gen types` is re-run.
+    await step.run("record-costs", async () => {
+      const supabase = createServiceClient();
+      await supabase
+        .from("digests")
+        .update({
+          llm_tokens_input: clusterResult.tokensIn + synthResult.tokensIn,
+          llm_tokens_output: clusterResult.tokensOut + synthResult.tokensOut,
+        } as Record<string, unknown>)
+        .eq("id", digestId);
+    });
 
     // ── Step 7: Fire digest/send ──────────────────────────────────────────
     await step.sendEvent("trigger-send", {

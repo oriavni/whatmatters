@@ -71,7 +71,7 @@ export const audioGenerate = inngest.createFunction(
     });
 
     // ── Step 2: Generate TTS + upload ─────────────────────────────────────
-    const { storagePath, fileSizeBytes, durationSec } = await step.run(
+    const { storagePath, fileSizeBytes, durationSec, ttsChars } = await step.run(
       "generate-tts",
       () => generateAudioForDigest(user_id, digest_id)
     );
@@ -86,6 +86,7 @@ export const audioGenerate = inngest.createFunction(
           storage_path: storagePath,
           file_size_bytes: fileSizeBytes,
           duration_sec: durationSec,
+          tts_chars: ttsChars,
           updated_at: new Date().toISOString(),
         })
         .eq("id", audio_digest_id);

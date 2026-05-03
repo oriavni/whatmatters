@@ -11,8 +11,12 @@ import { config } from "@/lib/config";
 // Only synthesize this many clusters — caps LLM spend regardless of item count
 const MAX_SYNTHESIS_CLUSTERS = 8;
 
-export async function synthesizeClusters(clusterIds: string[]): Promise<void> {
-  if (clusterIds.length === 0) return;
+export async function synthesizeClusters(
+  clusterIds: string[]
+): Promise<{ tokensIn: number; tokensOut: number }> {
+  if (clusterIds.length === 0) return { tokensIn: 0, tokensOut: 0 };
+  let tokensIn = 0;
+  let tokensOut = 0;
 
   const supabase = createServiceClient();
 
@@ -66,6 +70,8 @@ export async function synthesizeClusters(clusterIds: string[]): Promise<void> {
         }
       );
       summary = response.content.trim();
+      tokensIn += response.usage?.prompt_tokens ?? 0;
+      tokensOut += response.usage?.completion_tokens ?? 0;
     } catch (err) {
       // Non-fatal — leave summary null, digest still renders without it
       console.warn(`synthesizeClusters: failed for cluster ${cluster.id}:`, err);
@@ -78,6 +84,8 @@ export async function synthesizeClusters(clusterIds: string[]): Promise<void> {
         .eq("id", cluster.id);
     }
   }
+
+  return { tokensIn, tokensOut };
 }
 
 /**
