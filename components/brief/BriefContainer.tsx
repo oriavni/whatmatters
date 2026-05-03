@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { BriefHeader } from "./BriefHeader";
 import { BriefSkeleton } from "./BriefSkeleton";
 import { BriefEmptyState } from "./BriefEmptyState";
@@ -355,9 +356,15 @@ export function BriefContainer({
     return (
       <div className="max-w-2xl mx-auto pb-12 animate-in fade-in-0 duration-300">
         <div className="mb-8">
-          <PageHeader title="Your Brief" description="Generating…" />
+          <PageHeader title="Your Brief" />
         </div>
-        <BriefSkeleton inline />
+        <div className="flex items-center gap-3">
+          <Loader2 className="size-4 animate-spin text-muted-foreground shrink-0" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">Reading your sources…</p>
+            <p className="text-xs text-muted-foreground">This takes a few seconds</p>
+          </div>
+        </div>
       </div>
     );
   }

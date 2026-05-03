@@ -21,6 +21,18 @@ const SUBJECT_PATTERNS: RegExp[] = [
   /special\s+offer/i,
   /clearance/i,
   /buy\s+now[\s,]/i,
+  // Retail / fashion brand signals
+  /new\s+arrivals?/i,                // "New Arrivals" / "New Arrival"
+  /new\s+collection/i,               // "New Collection"
+  /just\s+dropped/i,
+  /now\s+(in\s+)?stores?/i,
+  /shop\s+the\s+(look|season|edit|drop)/i,
+  /קולקציה\s+חדשה/,                  // Hebrew: "new collection"
+  /פריטים\s+חדשים/,                  // Hebrew: "new items"
+  /מגיעים\s+חדשים/,                  // Hebrew: "new arrivals"
+  /הנחה.*\d+%/,                      // Hebrew discount with %
+  /\d+%.*הנחה/,                      // "30% הנחה"
+  /מבצע\s+(מיוחד|עכשיו|סוף)/,       // Hebrew: "special/now/end sale"
 ];
 
 // Sender email local-part patterns — high confidence when combined with
@@ -33,15 +45,36 @@ const PROMOTIONAL_SENDER_PREFIXES = [
   "sales@",
   "promo@",
   "discount@",
+  "newsletter@",
+  "noreply@",
+  "no-reply@",
+  "store@",
+  "shop@",
 ];
 
-// Body signals — only used to confirm sender-based detection
+// Body signals — used to confirm sender-based detection or standalone retail signals
 const BODY_PROMO_PATTERNS: RegExp[] = [
   /\d+%\s*off/i,
   /shop\s+now/i,
   /buy\s+now/i,
   /limited\s+time/i,
   /שופ|קניות|הזמנה|רכישה/, // Hebrew: shop, shopping, order, purchase
+  /add\s+to\s+(cart|bag)/i,
+  /view\s+(all|collection|lookbook|store)/i,
+  /new\s+arrivals?/i,
+  /new\s+collection/i,
+  /₪\s*\d+/,                         // Israeli shekel price tag
+  /\$\d+(\.\d{2})?/,                 // USD price tag
+  /free\s+shipping/i,
+  /סחורה|מחיר|הוסף\s+לסל|קנה/,      // Hebrew: goods, price, add to cart, buy
+];
+
+// Body signals strong enough to flag standalone (no sender check needed)
+const BODY_STANDALONE_PATTERNS: RegExp[] = [
+  /new\s+arrivals?.*shop\s+now/is,
+  /shop\s+now.*new\s+(arrivals?|collection)/is,
+  /קולקציה\s+חדשה.*לרכישה/s,
+  /לרכישה.*קולקציה\s+חדשה/s,
 ];
 
 export function detectPromotional(
@@ -65,7 +98,20 @@ export function detectPromotional(
     return true;
   }
 
-  // 3. Hebrew ad marker anywhere in subject or first 500 chars of body
+  // 3. Strong combined retail signals in body alone (e.g. "New Arrivals … Shop Now")
+  const bodySnippet = bodyText.slice(0, 2000);
+  if (BODY_STANDALONE_PATTERNS.some((p) => p.test(bodySnippet))) {
+    return true;
+  }
+
+  // 4. Multiple body promo signals together — retail brand newsletters often
+  //    lack discount language in the subject but pack CTAs into the body.
+  const bodyHits = BODY_PROMO_PATTERNS.filter((p) => p.test(bodySnippet)).length;
+  if (bodyHits >= 3) {
+    return true;
+  }
+
+  // 5. Hebrew ad marker anywhere in subject or first 500 chars of body
   const snippet = subjectLower + " " + bodyText.slice(0, 500);
   if (snippet.includes("פרסומת")) {
     return true;
