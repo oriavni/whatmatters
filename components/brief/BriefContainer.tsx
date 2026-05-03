@@ -308,19 +308,37 @@ export function BriefContainer({
   if (isLoading) return <BriefSkeleton />;
 
   if (generationError) {
+    const isFirstTimeUser = lastDigestAt === null;
     return (
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
             <div className="flex items-center gap-2 shrink-0">
               <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
+              {/* Same gate as !digest branch — first-timers retry via button below */}
+              {!isFirstTimeUser && (
+                <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
+              )}
             </div>
           </PageHeader>
         </div>
         <Alert variant="destructive">
           <AlertDescription>{generationError}</AlertDescription>
         </Alert>
+        {/* First-time users: show retry button below the error */}
+        {isFirstTimeUser && hasSources && (
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                setGenerationError(null);
+                void handleFirstTimeGenerate();
+              }}
+              className="text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </div>
     );
   }
