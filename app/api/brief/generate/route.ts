@@ -54,18 +54,17 @@ export async function POST() {
     );
   }
 
-  // Guard: ensure the user has at least one ingested item within the past 7 days.
-  // We intentionally do not filter by is_processed — RSS items are inserted as
-  // processed=true, and newsletter items are marked processed=true by email-inbound.
-  // Both are valid inputs; the digest pipeline handles further filtering.
-  // A 7-day window accommodates weekly newsletters and slow feeds while still
-  // preventing generation against fully stale sources.
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Guard: ensure the user has at least one ingested item in the DB.
+  // We use created_at (when the item landed in our system), NOT received_at
+  // (the RSS publication date, which can be weeks old for backfill items).
+  // This matches the freshness endpoint so the "You're ready" state and the
+  // generate guard are always consistent.
+  // The digest pipeline applies its own 24h received_at window; if nothing
+  // falls inside that window, it returns a "no-items" failure gracefully.
   const { count } = await service
     .from("raw_items")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .gte("received_at", since);
+    .eq("user_id", user.id);
 
   if (!count || count === 0) {
     return NextResponse.json(
