@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Rss, Mail, Sparkles, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle2, Copy, Loader2, Mail, Rss, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddSourceDialog } from "@/components/sources/AddSourceDialog";
 import Link from "next/link";
@@ -36,11 +36,17 @@ function InlineCopyButton({ text }: { text: string }) {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Phase = "onboarding" | "ready";
+type Phase = "onboarding" | "processing" | "ready-first";
 
 interface BriefEmptyStateProps {
   inboundAddress: string;
   hasSources: boolean;
+  /**
+   * Items since last digest. null = freshness still loading.
+   * Used only to detect when sources have been read and items are available
+   * (processing → ready-first transition). Does NOT determine first-time state.
+   */
+  newCount: number | null;
   onSampleGenerate: () => Promise<void>;
   isSampleGenerating: boolean;
   onGenerate: () => void;
@@ -48,29 +54,51 @@ interface BriefEmptyStateProps {
   onSourceAdded?: () => void;
 }
 
+/**
+ * Compute display phase from props (no internal state needed).
+ *
+ * This component is only rendered for first-time users (lastDigestAt === null),
+ * so we don't need an isFirstTimeUser prop — it's always implicitly true here.
+ *
+ * onboarding  — no sources yet
+ * processing  — sources added, items not yet available (RSS still being fetched)
+ * ready-first — items available → show "Generate your first Brief" CTA
+ */
+function getPhase(hasSources: boolean, newCount: number | null): Phase {
+  if (!hasSources) return "onboarding";
+  if (newCount !== null && newCount > 0) return "ready-first";
+  return "processing";
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export function BriefEmptyState({
   inboundAddress,
   hasSources,
+  newCount,
   onSampleGenerate,
   isSampleGenerating,
   onGenerate,
   onSourceAdded,
 }: BriefEmptyStateProps) {
-  const [phase, setPhase] = useState<Phase>(hasSources ? "ready" : "onboarding");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phase = getPhase(hasSources, newCount);
 
-  useEffect(() => {
-    if (hasSources && phase === "onboarding") {
-      setPhase("ready");
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [hasSources, phase]);
+  // ── Processing state: source added, waiting for first items ───────────────
+  if (phase === "processing") {
+    return (
+      <div className="space-y-4 animate-in fade-in-0 duration-300">
+        <div className="flex items-center gap-3">
+          <Loader2 className="size-4 animate-spin text-muted-foreground shrink-0" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">Reading your sources…</p>
+            <p className="text-xs text-muted-foreground">This takes a few seconds</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // ── Ready state: source added, waiting to generate ─────────────────────────
-  if (phase === "ready") {
+  // ── Ready-first state: items available, waiting to generate first digest ───
+  if (phase === "ready-first") {
     return (
       <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
         {/* Success banner */}
@@ -78,10 +106,10 @@ export function BriefEmptyState({
           <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
           <div className="space-y-0.5">
             <p className="text-sm font-medium text-green-900 dark:text-green-200">
-              Source added — ready to generate your first Brief
+              You&apos;re ready
             </p>
             <p className="text-xs text-green-700/80 dark:text-green-400/80">
-              Your sources will be fetched and compiled into a single digest.
+              Your sources have been read — generate your first Brief now.
             </p>
           </div>
         </div>
@@ -97,7 +125,10 @@ export function BriefEmptyState({
 
         <p className="text-xs text-muted-foreground">
           You can add more sources anytime from the{" "}
-          <Link href="/app/sources" className="underline underline-offset-2 hover:text-foreground transition-colors">
+          <Link
+            href="/app/sources"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
             Sources page
           </Link>
           .
@@ -106,7 +137,7 @@ export function BriefEmptyState({
     );
   }
 
-  // ── Onboarding state ───────────────────────────────────────────────────────
+  // ── Onboarding state: no sources yet ──────────────────────────────────────
   return (
     <div className="space-y-8">
       {/* Title */}
@@ -186,6 +217,7 @@ export function BriefEmptyState({
             </Button>
           </div>
         </div>
+
       </div>
     </div>
   );
