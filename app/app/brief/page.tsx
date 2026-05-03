@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { config } from "@/lib/config";
-import { isAudioPremium } from "@/lib/audio/premium";
 import { BriefContainer } from "@/components/brief/BriefContainer";
 
 export const metadata: Metadata = { title: "Brief" };
@@ -14,10 +14,12 @@ export default async function BriefPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileResult, sourcesResult, isPremiumInitial] = await Promise.all([
+  const service = createServiceClient();
+
+  const [profileResult, sourcesResult, subResult] = await Promise.all([
     supabase
       .from("users")
-      .select("inbound_slug")
+      .select("inbound_slug, is_premium_override")
       .eq("id", user.id)
       .single(),
     supabase
@@ -25,7 +27,11 @@ export default async function BriefPage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("status", "active"),
-    isAudioPremium(user.id),
+    service
+      .from("subscriptions")
+      .select("status")
+      .eq("user_id", user.id)
+      .maybeSingle(),
   ]);
 
   const inboundAddress = profileResult.data?.inbound_slug
@@ -33,6 +39,9 @@ export default async function BriefPage() {
     : `${user.id.replace(/-/g, "").slice(0, 16)}@${config.postmark.inboundDomain}`;
 
   const hasSourcesInitial = (sourcesResult.count ?? 0) > 0;
+  const isPremiumInitial =
+    profileResult.data?.is_premium_override === true ||
+    subResult.data?.status === "active";
 
   return (
     <BriefContainer

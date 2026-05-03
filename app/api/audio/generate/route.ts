@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Digest not found" }, { status: 404 });
   }
 
+  // Guard: frozen accounts cannot generate audio.
+  const { isUserFrozen } = await import("@/lib/admin/freeze");
+  if (await isUserFrozen(user.id)) {
+    return NextResponse.json({ error: "Account suspended." }, { status: 403 });
+  }
+
   // Idempotency: skip if already in-progress; allow retry if failed
   const { data: existing } = await serviceSupabase
     .from("audio_digests")

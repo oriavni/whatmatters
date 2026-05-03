@@ -8,6 +8,7 @@ import { ResetPreferencesButton } from "@/components/admin/ResetPreferencesButto
 import { PlanSelect } from "@/components/admin/PlanSelect";
 import { SimulateReplyForm } from "@/components/admin/SimulateReplyForm";
 import { PremiumToggle } from "@/components/admin/PremiumToggle";
+import { FreezeToggle } from "@/components/admin/FreezeToggle";
 
 function formatDate(d: string | null | undefined) {
   if (!d) return "—";
@@ -111,6 +112,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
             <p className="text-xs text-muted-foreground mt-1">Joined {formatDate(user.created_at)}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <FreezeToggle userId={user.id} isFrozen={(user as unknown as { is_frozen?: boolean }).is_frozen ?? false} />
             <PremiumToggle userId={user.id} isPremium={user.is_premium_override ?? false} />
             <PlanSelect userId={user.id} currentPlan={plan} />
             <ForceGenerateButton userId={user.id} />

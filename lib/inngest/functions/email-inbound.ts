@@ -66,6 +66,13 @@ export const emailInbound = inngest.createFunction(
     // Idempotency guard
     if (rawItem.is_processed) return { skipped: true };
 
+    // ── Freeze check ─────────────────────────────────────────────────────────
+    const isFrozen = await step.run("check-frozen", async () => {
+      const { isUserFrozen } = await import("@/lib/admin/freeze");
+      return isUserFrozen(user_id);
+    });
+    if (isFrozen) return { skipped: true, reason: "frozen" };
+
     // ── Step 2: Find or create source ────────────────────────────────────────
     const { sourceId } = await step.run("identify-source", () =>
       identifySource(user_id, sender_email, sender_name)
