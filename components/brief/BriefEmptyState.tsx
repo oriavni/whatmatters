@@ -50,6 +50,8 @@ interface BriefEmptyStateProps {
   onSampleGenerate: () => Promise<void>;
   isSampleGenerating: boolean;
   onGenerate: () => void | Promise<void>;
+  /** True while the first-time generate POST is in flight — disables + shows spinner on button */
+  isGeneratingFirst?: boolean;
   /** Called immediately after a source is successfully added */
   onSourceAdded?: () => void;
 }
@@ -78,6 +80,7 @@ export function BriefEmptyState({
   onSampleGenerate,
   isSampleGenerating,
   onGenerate,
+  isGeneratingFirst = false,
   onSourceAdded,
 }: BriefEmptyStateProps) {
   const phase = getPhase(hasSources, newCount);
@@ -119,8 +122,16 @@ export function BriefEmptyState({
           size="default"
           className="w-full sm:w-auto"
           onClick={onGenerate}
+          disabled={isGeneratingFirst}
         >
-          Generate your first Brief
+          {isGeneratingFirst ? (
+            <>
+              <Loader2 className="size-3.5 mr-2 animate-spin" />
+              Starting…
+            </>
+          ) : (
+            "Generate your first Brief"
+          )}
         </Button>
 
         <p className="text-xs text-muted-foreground">

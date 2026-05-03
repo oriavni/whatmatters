@@ -10,6 +10,7 @@ import { QuickMentions } from "./QuickMentions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
+import { toast } from "sonner";
 import type { BriefDigest } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
@@ -88,6 +89,7 @@ export function BriefContainer({
   const [isSampleGenerating, setIsSampleGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [hasSources, setHasSources] = useState(hasSourcesInitial);
+  const [isFirstTimeGenerating, setIsFirstTimeGenerating] = useState(false);
   // null = still loading from API; number = resolved
   const [newCount, setNewCount] = useState<number | null>(null);
   /**
@@ -248,21 +250,36 @@ export function BriefContainer({
   // Called by the first-time "Generate your first Brief" button (BriefEmptyState).
   // ReadNowButton isn't in the picture here, so we must POST to the API ourselves.
   async function handleFirstTimeGenerate() {
+    console.log("[handleFirstTimeGenerate] button clicked — POSTing to /api/brief/generate");
+    setIsFirstTimeGenerating(true);
     try {
       const res = await fetch("/api/brief/generate", { method: "POST" });
+      console.log("[handleFirstTimeGenerate] response status:", res.status);
+
       if (res.status === 409) {
-        // A generation is already running — just start polling for it
+        console.log("[handleFirstTimeGenerate] 409 — generation already in progress, starting poll");
         handleGenerate();
         return;
       }
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setGenerationError(body.error ?? "Failed to generate Brief. Please try again.");
+        console.error("[handleFirstTimeGenerate] error response:", res.status, body);
+        const msg = body.error ?? `Unexpected error (${res.status})`;
+        toast.error(msg);
+        setGenerationError(msg);
         return;
       }
+
+      console.log("[handleFirstTimeGenerate] success — starting poll");
       handleGenerate();
-    } catch {
-      setGenerationError("Failed to generate Brief. Please try again.");
+    } catch (err) {
+      console.error("[handleFirstTimeGenerate] fetch threw:", err);
+      const msg = "Failed to generate Brief. Please try again.";
+      toast.error(msg);
+      setGenerationError(msg);
+    } finally {
+      setIsFirstTimeGenerating(false);
     }
   }
 
@@ -353,6 +370,7 @@ export function BriefContainer({
             onSampleGenerate={handleSample}
             isSampleGenerating={isSampleGenerating}
             onGenerate={handleFirstTimeGenerate}
+            isGeneratingFirst={isFirstTimeGenerating}
             onSourceAdded={() => setHasSources(true)}
           />
         )}
