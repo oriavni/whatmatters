@@ -10,10 +10,13 @@ import { QuickMentions } from "./QuickMentions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
+import { toast } from "sonner";
 import type { BriefDigest } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 20; // 80 seconds before giving up
+/** How often to poll for items while sources are being processed (first-time users). */
+const FRESHNESS_POLL_MS = 5000;
 
 type GenerationStatus = "idle" | "generating" | "failed";
 
@@ -26,6 +29,12 @@ interface Interactions {
   liked: Set<string>;
   saved: Set<string>;
   ignoreLevels: Map<string, number>; // cluster_id → suppress level (1-3)
+}
+
+interface FreshnessData {
+  newCount: number;
+  /** ISO timestamp of the most recent completed digest, or null for first-time users. */
+  lastDigestAt: string | null;
 }
 
 interface BriefContainerProps {
@@ -57,12 +66,11 @@ async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interact
   }
 }
 
-async function fetchFreshness(): Promise<number | null> {
+async function fetchFreshness(): Promise<FreshnessData | null> {
   try {
     const res = await fetch("/api/brief/freshness");
     if (!res.ok) return null;
-    const data = await res.json() as { newCount: number };
-    return data.newCount;
+    return res.json() as Promise<FreshnessData>;
   } catch {
     return null;
   }
@@ -81,10 +89,18 @@ export function BriefContainer({
   const [isSampleGenerating, setIsSampleGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [hasSources, setHasSources] = useState(hasSourcesInitial);
-  // null = still loading; number = resolved
+  const [isFirstTimeGenerating, setIsFirstTimeGenerating] = useState(false);
+  // null = still loading from API; number = resolved
   const [newCount, setNewCount] = useState<number | null>(null);
+  /**
+   * undefined  = freshness not yet loaded
+   * null       = no previous completed digest (first-time user)
+   * string     = ISO timestamp of last completed digest (returning user)
+   */
+  const [lastDigestAt, setLastDigestAt] = useState<string | null | undefined>(undefined);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const freshnessPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchCurrent = useCallback(async (): Promise<CurrentResponse> => {
     try {
@@ -100,6 +116,13 @@ export function BriefContainer({
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
+    }
+  }, []);
+
+  const stopFreshnessPoll = useCallback(() => {
+    if (freshnessPollRef.current) {
+      clearInterval(freshnessPollRef.current);
+      freshnessPollRef.current = null;
     }
   }, []);
 
@@ -127,8 +150,13 @@ export function BriefContainer({
         setInteractions(inter);
         setIsGenerating(false);
         stopPolling();
-        // Refresh freshness after a digest lands so the button resets
-        fetchFreshness().then(setNewCount);
+        // Refresh freshness after a digest lands so the ReadNow button resets
+        fetchFreshness().then((result) => {
+          if (result) {
+            setNewCount(result.newCount);
+            setLastDigestAt(result.lastDigestAt);
+          }
+        });
         return;
       }
 
@@ -149,10 +177,10 @@ export function BriefContainer({
     }, POLL_INTERVAL_MS);
   }, [fetchCurrent, stopPolling]);
 
+  // ── Initial load: fetch digest + freshness in parallel ──────────────────────
   useEffect(() => {
-    // Fetch digest + freshness in parallel on mount
     Promise.all([fetchCurrent(), fetchFreshness()]).then(
-      async ([{ digest: data, generationStatus }, count]) => {
+      async ([{ digest: data, generationStatus }, freshness]) => {
         if (data) {
           const inter = await fetchInteractionsForDigest(data);
           setDigest(data);
@@ -160,7 +188,15 @@ export function BriefContainer({
         } else {
           setDigest(null);
         }
-        setNewCount(count);
+        if (freshness) {
+          setNewCount(freshness.newCount);
+          setLastDigestAt(freshness.lastDigestAt);
+        } else {
+          // Freshness API unavailable — use a non-null sentinel so we don't
+          // get stuck in the processing state. The generate button is still usable.
+          setNewCount(0);
+          setLastDigestAt("unavailable");
+        }
         setIsLoading(false);
         if (!data && generationStatus === "generating") {
           setIsGenerating(true);
@@ -171,10 +207,80 @@ export function BriefContainer({
     return stopPolling;
   }, [fetchCurrent, stopPolling, startPolling]);
 
+  // ── Poll freshness while in "processing" state ───────────────────────────────
+  // Only active when: sources added, first-time user (no previous digest),
+  // no digest loaded, not generating, and items haven't arrived yet.
+  useEffect(() => {
+    const shouldPoll =
+      !isLoading &&
+      !digest &&
+      !isGenerating &&
+      hasSources &&
+      lastDigestAt === null &&
+      newCount === 0;
+
+    if (!shouldPoll) {
+      stopFreshnessPoll();
+      return;
+    }
+
+    // Don't double-start if already running
+    if (freshnessPollRef.current) return;
+
+    freshnessPollRef.current = setInterval(async () => {
+      const result = await fetchFreshness();
+      if (result && result.newCount > 0) {
+        setNewCount(result.newCount);
+        setLastDigestAt(result.lastDigestAt);
+        stopFreshnessPoll();
+      }
+    }, FRESHNESS_POLL_MS);
+
+    return stopFreshnessPoll;
+  }, [isLoading, digest, isGenerating, hasSources, lastDigestAt, newCount, stopFreshnessPoll]);
+
+  // Called by ReadNowButton — the API POST has already been made by the button itself
+  // before it calls this. We only need to update UI state and start polling.
   function handleGenerate() {
     setIsGenerating(true);
     setGenerationError(null);
     startPolling();
+  }
+
+  // Called by the first-time "Generate your first Brief" button (BriefEmptyState).
+  // ReadNowButton isn't in the picture here, so we must POST to the API ourselves.
+  async function handleFirstTimeGenerate() {
+    console.log("[handleFirstTimeGenerate] button clicked — POSTing to /api/brief/generate");
+    setIsFirstTimeGenerating(true);
+    try {
+      const res = await fetch("/api/brief/generate", { method: "POST" });
+      console.log("[handleFirstTimeGenerate] response status:", res.status);
+
+      if (res.status === 409) {
+        console.log("[handleFirstTimeGenerate] 409 — generation already in progress, starting poll");
+        handleGenerate();
+        return;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[handleFirstTimeGenerate] error response:", res.status, body);
+        const msg = body.error ?? `Unexpected error (${res.status})`;
+        toast.error(msg);
+        setGenerationError(msg);
+        return;
+      }
+
+      console.log("[handleFirstTimeGenerate] success — starting poll");
+      handleGenerate();
+    } catch (err) {
+      console.error("[handleFirstTimeGenerate] fetch threw:", err);
+      const msg = "Failed to generate Brief. Please try again.";
+      toast.error(msg);
+      setGenerationError(msg);
+    } finally {
+      setIsFirstTimeGenerating(false);
+    }
   }
 
   async function handleSample() {
@@ -231,28 +337,43 @@ export function BriefContainer({
   }
 
   if (!digest) {
+    // isFirstTimeUser: no completed digest has ever been generated for this user.
+    // Derived solely from lastDigestAt (null = no prior digest), NOT from newCount.
+    // This is the single gate that splits the two mutually exclusive UI modes:
+    //   true  → show onboarding/processing/ready-first; hide ReadNow
+    //   false → show ReadNow (normal mode); hide onboarding UI
+    const isFirstTimeUser = lastDigestAt === null;
+
     return (
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
             <div className="flex items-center gap-2 shrink-0">
               <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              <ReadNowButton
-                onGenerate={handleGenerate}
-                disabled={!hasSources}
-                newCount={hasSources ? newCount : undefined}
-              />
+              {/* ReadNow is only shown for returning users — first-timers use the
+                  "Generate your first Brief" button rendered below, never both. */}
+              {!isFirstTimeUser && (
+                <ReadNowButton
+                  onGenerate={handleGenerate}
+                  disabled={!hasSources}
+                  newCount={hasSources ? newCount : undefined}
+                />
+              )}
             </div>
           </PageHeader>
         </div>
-        <BriefEmptyState
-          inboundAddress={inboundAddress}
-          hasSources={hasSources}
-          onSampleGenerate={handleSample}
-          isSampleGenerating={isSampleGenerating}
-          onGenerate={handleGenerate}
-          onSourceAdded={() => setHasSources(true)}
-        />
+        {isFirstTimeUser && (
+          <BriefEmptyState
+            inboundAddress={inboundAddress}
+            hasSources={hasSources}
+            newCount={newCount}
+            onSampleGenerate={handleSample}
+            isSampleGenerating={isSampleGenerating}
+            onGenerate={handleFirstTimeGenerate}
+            isGeneratingFirst={isFirstTimeGenerating}
+            onSourceAdded={() => setHasSources(true)}
+          />
+        )}
       </div>
     );
   }

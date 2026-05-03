@@ -5,6 +5,7 @@ import { inngest } from "@/lib/inngest/client";
 
 /** POST /api/brief/generate — trigger on-demand digest generation */
 export async function POST() {
+  try {
   const supabase = await createClient();
   const {
     data: { user },
@@ -116,8 +117,17 @@ export async function POST() {
   // The function creates the digest row and handles the full pipeline.
   await inngest.send({
     name: "digest/generate",
-    data: { user_id: user.id },
+    data: {
+      user_id: user.id,
+      trigger: "on_demand" as const,
+    },
   });
 
   return NextResponse.json({ status: "generating" });
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[POST /api/brief/generate] unhandled error:", message, err);
+    return NextResponse.json({ error: `Server error: ${message}` }, { status: 500 });
+  }
 }
