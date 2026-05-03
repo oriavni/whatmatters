@@ -80,9 +80,9 @@ export const digestGenerate = inngest.createFunction(
         .eq("user_id", user_id)
         .eq("is_processed", true)
         .eq("is_promotional", false)
-        .gte("received_at", periodStart)
-        .lte("received_at", periodEnd)
-        .order("received_at", { ascending: false })
+        .gte("created_at", periodStart)
+        .lte("created_at", periodEnd)
+        .order("created_at", { ascending: false })
         .limit(150);
 
       if (error) throw new Error(`load-items: ${error.message}`);
