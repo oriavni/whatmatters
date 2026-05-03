@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Rss, Mail, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddSourceDialog } from "@/components/sources/AddSourceDialog";
+import Link from "next/link";
 
 // ─── Inline copy helper ───────────────────────────────────────────────────────
 function InlineCopyButton({ text }: { text: string }) {
@@ -35,7 +36,7 @@ function InlineCopyButton({ text }: { text: string }) {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Phase = "onboarding" | "collapsing" | "ready";
+type Phase = "onboarding" | "ready";
 
 interface BriefEmptyStateProps {
   inboundAddress: string;
@@ -56,14 +57,12 @@ export function BriefEmptyState({
   onGenerate,
   onSourceAdded,
 }: BriefEmptyStateProps) {
-  // Phase drives the animation: onboarding → collapsing (350ms) → ready
   const [phase, setPhase] = useState<Phase>(hasSources ? "ready" : "onboarding");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (hasSources && phase === "onboarding") {
-      setPhase("collapsing");
-      timerRef.current = setTimeout(() => setPhase("ready"), 350);
+      setPhase("ready");
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -73,9 +72,7 @@ export function BriefEmptyState({
   // ── Ready state: source added, waiting to generate ─────────────────────────
   if (phase === "ready") {
     return (
-      <div
-        className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
-      >
+      <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
         {/* Success banner */}
         <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 flex items-start gap-3">
           <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
@@ -99,23 +96,19 @@ export function BriefEmptyState({
         </Button>
 
         <p className="text-xs text-muted-foreground">
-          🎧 You&apos;ll be able to listen once your Brief is generated.
+          You can add more sources anytime from the{" "}
+          <Link href="/app/sources" className="underline underline-offset-2 hover:text-foreground transition-colors">
+            Sources page
+          </Link>
+          .
         </p>
       </div>
     );
   }
 
-  // ── Onboarding / collapsing state ─────────────────────────────────────────
+  // ── Onboarding state ───────────────────────────────────────────────────────
   return (
-    <div
-      className="space-y-8"
-      style={{
-        opacity: phase === "collapsing" ? 0 : 1,
-        transform: phase === "collapsing" ? "translateY(-6px)" : "translateY(0)",
-        transition: "opacity 300ms ease, transform 300ms ease",
-        pointerEvents: phase === "collapsing" ? "none" : undefined,
-      }}
-    >
+    <div className="space-y-8">
       {/* Title */}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">Create your first Brief</h2>
@@ -194,11 +187,6 @@ export function BriefEmptyState({
           </div>
         </div>
       </div>
-
-      {/* Audio note */}
-      <p className="text-xs text-muted-foreground">
-        🎧 You&apos;ll be able to listen once your Brief is generated.
-      </p>
     </div>
   );
 }

@@ -31,6 +31,35 @@ export async function GET(
     return NextResponse.json({ status: "not_found" });
   }
 
+  // Auto-heal rows stuck in generating/pending longer than 10 minutes.
+  // This covers cases where the Inngest job was never delivered or crashed
+  // without triggering onFailure (e.g. worker restart, dev server down).
+  const STALE_MS = 10 * 60 * 1000;
+  const isStuck =
+    (audioRow.status === "generating" || audioRow.status === "pending") &&
+    Date.now() - new Date(audioRow.created_at).getTime() > STALE_MS;
+
+  if (isStuck) {
+    serviceSupabase
+      .from("audio_digests")
+      .update({
+        status: "failed",
+        error_message: "Generation timed out — please try again.",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", audioRow.id)
+      .then(() => {});
+    return NextResponse.json({
+      audio_digest_id: audioRow.id,
+      status: "failed",
+      audio_url: null,
+      duration_sec: null,
+      file_size_bytes: null,
+      error_message: "Generation timed out — please try again.",
+      created_at: audioRow.created_at,
+    });
+  }
+
   let audio_url: string | null = null;
   if (audioRow.status === "completed" && audioRow.storage_path) {
     audio_url = await getAudioSignedUrl(audioRow.storage_path);

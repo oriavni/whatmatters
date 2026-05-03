@@ -35,6 +35,8 @@ interface BriefContainerProps {
   inboundAddress?: string;
   /** Whether the user already has ≥1 active source (SSR value) */
   hasSourcesInitial?: boolean;
+  /** Whether the user is on a premium or trial plan (SSR value) */
+  isPremiumInitial?: boolean;
 }
 
 async function fetchInteractionsForDigest(digest: BriefDigest): Promise<Interactions> {
@@ -70,6 +72,7 @@ export function BriefContainer({
   digestId: _digestId,
   inboundAddress = "",
   hasSourcesInitial = false,
+  isPremiumInitial = false,
 }: BriefContainerProps) {
   const [digest, setDigest] = useState<BriefDigest | null>(null);
   const [interactions, setInteractions] = useState<Interactions | null>(null);
@@ -203,7 +206,10 @@ export function BriefContainer({
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
-            <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
+            <div className="flex items-center gap-2 shrink-0">
+              <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
+              <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
+            </div>
           </PageHeader>
         </div>
         <Alert variant="destructive">
@@ -229,11 +235,14 @@ export function BriefContainer({
       <div className="max-w-2xl mx-auto pb-12">
         <div className="mb-8">
           <PageHeader title="Your Brief">
-            <ReadNowButton
-              onGenerate={handleGenerate}
-              disabled={!hasSources}
-              newCount={hasSources ? newCount : undefined}
-            />
+            <div className="flex items-center gap-2 shrink-0">
+              <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
+              <ReadNowButton
+                onGenerate={handleGenerate}
+                disabled={!hasSources}
+                newCount={hasSources ? newCount : undefined}
+              />
+            </div>
           </PageHeader>
         </div>
         <BriefEmptyState
@@ -256,7 +265,12 @@ export function BriefContainer({
       <div className="flex items-start justify-between gap-4 mb-8">
         <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
         <div className="flex items-center gap-2 shrink-0">
-          <GenerateAudioButton digestId={digest.id} label="🎧 Listen" />
+          <GenerateAudioButton
+            digestId={digest.id}
+            isPremium={isPremiumInitial}
+            hasDigest={true}
+            hasSources={true}
+          />
           <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
         </div>
       </div>

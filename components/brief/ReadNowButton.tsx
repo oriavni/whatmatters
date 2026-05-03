@@ -55,10 +55,13 @@ export function ReadNowButton({
   const isDisabled = disabled || noNewStories;
   const isLoading = newCount === null; // still fetching freshness
 
-  // Button label
+  // Button label — "Read now (N)" with 99+ cap
+  const displayCount = newCount != null && newCount > 99 ? "99+" : newCount;
+  const exactCountTitle = newCount != null && newCount > 99 ? String(newCount) : null;
+
   function getLabel() {
     if (loading) return "Generating…";
-    if (newCount != null && newCount > 0) return `Read (${newCount} new)`;
+    if (newCount != null && newCount > 0) return `Read now (${displayCount})`;
     return "Read now";
   }
 
@@ -124,6 +127,16 @@ export function ReadNowButton({
           {btn}
         </TooltipTrigger>
         <TooltipContent side="bottom">{effectiveTooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : exactCountTitle ? (
+    // Show exact count in tooltip when displaying "99+"
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger render={<span className="inline-flex" />}>
+          {btn}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{exactCountTitle} new stories</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   ) : (
