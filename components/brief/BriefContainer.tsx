@@ -208,14 +208,15 @@ export function BriefContainer({
   }, [fetchCurrent, stopPolling, startPolling]);
 
   // ── Poll freshness while in "processing" state ───────────────────────────────
-  // Only active when: sources added, first-time user (no previous digest),
-  // no digest loaded, not generating, and items haven't arrived yet.
+  // Active for all first-time users (no previous digest) with no digest yet,
+  // regardless of hasSources — newsletter sources are auto-created by the backend
+  // when an inbound email arrives, so hasSources in UI state may still be false
+  // even though the DB already has items ready to generate.
   useEffect(() => {
     const shouldPoll =
       !isLoading &&
       !digest &&
       !isGenerating &&
-      hasSources &&
       lastDigestAt === null &&
       newCount === 0;
 
@@ -232,12 +233,16 @@ export function BriefContainer({
       if (result && result.newCount > 0) {
         setNewCount(result.newCount);
         setLastDigestAt(result.lastDigestAt);
+        // A source was auto-created by the email backend — reflect that in UI
+        // so the "You're ready" state renders correctly even if the user never
+        // explicitly added a source via the AddSourceDialog.
+        setHasSources(true);
         stopFreshnessPoll();
       }
     }, FRESHNESS_POLL_MS);
 
     return stopFreshnessPoll;
-  }, [isLoading, digest, isGenerating, hasSources, lastDigestAt, newCount, stopFreshnessPoll]);
+  }, [isLoading, digest, isGenerating, lastDigestAt, newCount, stopFreshnessPoll]);
 
   // Called by ReadNowButton — the API POST has already been made by the button itself
   // before it calls this. We only need to update UI state and start polling.
@@ -315,10 +320,13 @@ export function BriefContainer({
           <PageHeader title="Your Brief">
             <div className="flex items-center gap-2 shrink-0">
               <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              {/* Same gate as !digest branch — first-timers retry via button below */}
-              {!isFirstTimeUser && (
-                <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
-              )}
+              {/* Always show ReadNow; first-time users see it disabled with tooltip */}
+              <ReadNowButton
+                onGenerate={handleGenerate}
+                disabled={isFirstTimeUser || !hasSources}
+                disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
+                newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
+              />
             </div>
           </PageHeader>
         </div>
@@ -345,7 +353,7 @@ export function BriefContainer({
 
   if (isGenerating && !digest) {
     return (
-      <div className="max-w-2xl mx-auto pb-12">
+      <div className="max-w-2xl mx-auto pb-12 animate-in fade-in-0 duration-300">
         <div className="mb-8">
           <PageHeader title="Your Brief" description="Generating…" />
         </div>
@@ -368,15 +376,13 @@ export function BriefContainer({
           <PageHeader title="Your Brief">
             <div className="flex items-center gap-2 shrink-0">
               <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              {/* ReadNow is only shown for returning users — first-timers use the
-                  "Generate your first Brief" button rendered below, never both. */}
-              {!isFirstTimeUser && (
-                <ReadNowButton
-                  onGenerate={handleGenerate}
-                  disabled={!hasSources}
-                  newCount={hasSources ? newCount : undefined}
-                />
-              )}
+              {/* Always show ReadNow; first-time users see it greyed out */}
+              <ReadNowButton
+                onGenerate={handleGenerate}
+                disabled={isFirstTimeUser || !hasSources}
+                disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
+                newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
+              />
             </div>
           </PageHeader>
         </div>
@@ -400,7 +406,7 @@ export function BriefContainer({
   const shortMentions = digest.clusters.filter((c) => !c.isFullBlock);
 
   return (
-    <div className="max-w-2xl mx-auto pb-12">
+    <div className="max-w-2xl mx-auto pb-12 animate-in fade-in-0 duration-500">
       <div className="flex items-start justify-between gap-4 mb-8">
         <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
         <div className="flex items-center gap-2 shrink-0">
