@@ -17,6 +17,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { Loader2, Zap } from "lucide-react";
+import { buttonVariants } from "@/lib/button-variants";
 import { toast } from "sonner";
 
 interface ReadNowButtonProps {
@@ -34,9 +35,20 @@ interface ReadNowButtonProps {
   newCount?: number | null;
 }
 
-async function triggerGenerate(): Promise<{ ok: boolean; alreadyInProgress: boolean }> {
+type TrialReason = "trial_expired" | "trial_cap_reached";
+
+async function triggerGenerate(): Promise<{
+  ok: boolean;
+  alreadyInProgress: boolean;
+  trialReason?: TrialReason;
+  errorMessage?: string;
+}> {
   const res = await fetch("/api/brief/generate", { method: "POST" });
   if (res.status === 409) return { ok: true, alreadyInProgress: true };
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({}));
+    return { ok: false, alreadyInProgress: false, trialReason: body.reason, errorMessage: body.error };
+  }
   return { ok: res.ok, alreadyInProgress: false };
 }
 
@@ -48,6 +60,7 @@ export function ReadNowButton({
 }: ReadNowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [trialModalReason, setTrialModalReason] = useState<TrialReason | null>(null);
 
   // Derive effective disabled state
   // newCount === 0 means "no new stories" — treat as disabled regardless of `disabled` prop
@@ -73,13 +86,17 @@ export function ReadNowButton({
   async function doGenerate() {
     setLoading(true);
     try {
-      const { ok, alreadyInProgress } = await triggerGenerate();
+      const { ok, alreadyInProgress, trialReason, errorMessage } = await triggerGenerate();
       if (alreadyInProgress) {
         toast.info("Your Brief is already being generated. Check back in a moment.");
         onGenerate?.();
         return;
       }
-      if (!ok) throw new Error("Failed to generate Brief");
+      if (trialReason) {
+        setTrialModalReason(trialReason);
+        return;
+      }
+      if (!ok) throw new Error(errorMessage ?? "Failed to generate Brief");
       toast.success("Generating your Brief — it will appear here shortly.");
       onGenerate?.();
     } catch (err) {
@@ -146,6 +163,30 @@ export function ReadNowButton({
   return (
     <>
       {wrappedBtn}
+
+      {/* Trial limit modal */}
+      <Dialog open={trialModalReason !== null} onOpenChange={(open) => { if (!open) setTrialModalReason(null); }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>
+              {trialModalReason === "trial_expired" ? "Your free trial has ended" : "Trial limit reached"}
+            </DialogTitle>
+            <DialogDescription>
+              {trialModalReason === "trial_expired"
+                ? "Your 3-day free trial has expired. Upgrade to keep generating Briefs."
+                : "You've used all 3 Briefs included in your free trial. Upgrade to generate more."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTrialModalReason(null)}>
+              Maybe later
+            </Button>
+            <a href="/pricing" className={buttonVariants({ variant: "default" })}>
+              Upgrade
+            </a>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Low-count confirmation modal */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

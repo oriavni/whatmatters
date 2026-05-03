@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
-import { isUserPremium } from "@/lib/audio/premium";
+import { isAudioPremium } from "@/lib/audio/premium";
 import { BriefContainer } from "@/components/brief/BriefContainer";
 
 export const metadata: Metadata = { title: "Brief" };
@@ -25,7 +25,7 @@ export default async function BriefPage() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("status", "active"),
-    isUserPremium(user.id),
+    isAudioPremium(user.id),
   ]);
 
   const inboundAddress = profileResult.data?.inbound_slug
