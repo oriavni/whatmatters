@@ -71,10 +71,10 @@ const BODY_PROMO_PATTERNS: RegExp[] = [
 
 // Body signals strong enough to flag standalone (no sender check needed)
 const BODY_STANDALONE_PATTERNS: RegExp[] = [
-  /new\s+arrivals?.*shop\s+now/is,
-  /shop\s+now.*new\s+(arrivals?|collection)/is,
-  /קולקציה\s+חדשה.*לרכישה/s,
-  /לרכישה.*קולקציה\s+חדשה/s,
+  /new\s+arrivals?[\s\S]*shop\s+now/i,
+  /shop\s+now[\s\S]*new\s+(arrivals?|collection)/i,
+  /קולקציה\s+חדשה[\s\S]*לרכישה/,
+  /לרכישה[\s\S]*קולקציה\s+חדשה/,
 ];
 
 export function detectPromotional(
