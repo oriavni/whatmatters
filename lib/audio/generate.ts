@@ -23,6 +23,8 @@ export interface AudioGenerateResult {
   fileSizeBytes: number;
   /** Estimated playback duration in whole seconds (MP3 @ 128 kbps). */
   durationSec: number;
+  /** Total characters submitted to OpenAI TTS across all chunks/lines. */
+  ttsChars: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -215,6 +217,7 @@ export async function generateAudioForDigest(
 
   const openai = getOpenAI();
   const buffers: Buffer[] = [];
+  let ttsChars = 0;
 
   if (mode === "dialogue") {
     // 3a. Generate dialogue script via LLM
@@ -232,12 +235,14 @@ export async function generateAudioForDigest(
       text: l.text,
       voice: (l.speaker === "A" ? "onyx" : "nova") as TTSVoice,
     }));
+    ttsChars = items.reduce((sum, item) => sum + item.text.length, 0);
     const batchedBuffers = await ttsBatch(openai, items);
     buffers.push(...batchedBuffers);
   } else {
     // 3b. "read" mode — chunk and TTS with a single voice, batched
     const chunks = chunkText(cleaned);
     const items = chunks.map((text) => ({ text, voice: "alloy" as TTSVoice }));
+    ttsChars = chunks.reduce((sum, c) => sum + c.length, 0);
     const batchedBuffers = await ttsBatch(openai, items);
     buffers.push(...batchedBuffers);
   }
@@ -263,7 +268,7 @@ export async function generateAudioForDigest(
   // (16 000 bytes/sec). Good enough for display; the browser reports exact value.
   const durationSec = Math.round(fileSizeBytes / 16_000);
 
-  return { storagePath, fileSizeBytes, durationSec };
+  return { storagePath, fileSizeBytes, durationSec, ttsChars };
 }
 
 /**

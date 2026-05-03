@@ -35,6 +35,17 @@ function formatDateTime(d: string | null | undefined) {
   });
 }
 
+function digestCost(tokensIn: number | null, tokensOut: number | null): string {
+  if (tokensIn == null && tokensOut == null) return "—";
+  const cost = ((tokensIn ?? 0) / 1_000_000 * 0.15) + ((tokensOut ?? 0) / 1_000_000 * 0.60);
+  return `$${cost.toFixed(4)}`;
+}
+
+function audioCost(ttsChars: number | null): string {
+  if (ttsChars == null) return "—";
+  return `$${(ttsChars / 1_000_000 * 15).toFixed(4)}`;
+}
+
 function formatDuration(start: string | null, end: string | null) {
   if (!start || !end) return "—";
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -121,6 +132,7 @@ export default async function AdminPage(props: {
     id: string; user_id: string; subject: string | null; status: string;
     started_at: string | null; finished_at: string | null;
     error_message: string | null; created_at: string;
+    llm_tokens_input: number | null; llm_tokens_output: number | null;
   }> = [];
   let digestUserEmails = new Map<string, string>();
   let digestCounts: { sent: number; failed: number; generating: number } = { sent: 0, failed: 0, generating: 0 };
@@ -130,7 +142,7 @@ export default async function AdminPage(props: {
     const [rowsResult, sentCount, failedCount, generatingCount] = await Promise.all([
       supabase
         .from("digests")
-        .select("id, user_id, subject, status, started_at, finished_at, error_message, created_at")
+        .select("id, user_id, subject, status, started_at, finished_at, error_message, created_at, llm_tokens_input, llm_tokens_output" as "id, user_id, subject, status, started_at, finished_at, error_message, created_at")
         .order("created_at", { ascending: false })
         .limit(100),
       supabase.from("digests").select("*", { count: "exact", head: true }).eq("status", "sent").gte("created_at", oneDayAgo),
@@ -195,6 +207,7 @@ export default async function AdminPage(props: {
     digest_id: string;
     status: string;
     file_size_bytes: number | null;
+    tts_chars: number | null;
     error_message: string | null;
     created_at: string;
   }> = [];
@@ -207,7 +220,7 @@ export default async function AdminPage(props: {
     const [rowsResult, count24hResult, countTotalResult] = await Promise.all([
       supabase
         .from("audio_digests")
-        .select("id, user_id, digest_id, status, file_size_bytes, error_message, created_at")
+        .select("id, user_id, digest_id, status, file_size_bytes, tts_chars, error_message, created_at" as "id, user_id, digest_id, status, file_size_bytes, error_message, created_at")
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
@@ -218,7 +231,7 @@ export default async function AdminPage(props: {
         .from("audio_digests")
         .select("*", { count: "exact", head: true }),
     ]);
-    audioRows = rowsResult.data ?? [];
+    audioRows = (rowsResult.data ?? []) as unknown as typeof audioRows;
     audioCount24h = count24hResult.count ?? 0;
     audioCountTotal = countTotalResult.count ?? 0;
     const uids = [...new Set(audioRows.map((r) => r.user_id))];
@@ -380,7 +393,7 @@ export default async function AdminPage(props: {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b">
                     <tr>
-                      {["User", "Subject", "Status", "Started", "Duration", "Error"].map((h) => (
+                      {["User", "Subject", "Status", "Started", "Duration", "Cost", "Error"].map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
                       ))}
                     </tr>
@@ -411,13 +424,16 @@ export default async function AdminPage(props: {
                         <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDuration(d.started_at ?? d.created_at, d.finished_at)}
                         </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">
+                          {digestCost(d.llm_tokens_input, d.llm_tokens_output)}
+                        </td>
                         <td className="px-3 py-2 text-xs text-destructive max-w-xs truncate">
                           {d.error_message ?? "—"}
                         </td>
                       </tr>
                     ))}
                     {digestRows.length === 0 && (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">No digests yet</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-muted-foreground">No digests yet</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -529,7 +545,7 @@ export default async function AdminPage(props: {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b">
                     <tr>
-                      {["User", "Digest ID", "Status", "Size", "Created", "Error"].map((h) => (
+                      {["User", "Digest ID", "Status", "Size", "Cost", "Created", "Error"].map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
                       ))}
                     </tr>
@@ -559,6 +575,9 @@ export default async function AdminPage(props: {
                             ? `${Math.round(row.file_size_bytes / 1024)} KB`
                             : "—"}
                         </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">
+                          {audioCost(row.tts_chars)}
+                        </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDateTime(row.created_at)}
                         </td>
@@ -569,7 +588,7 @@ export default async function AdminPage(props: {
                     ))}
                     {audioRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        <td colSpan={7} className="px-3 py-6 text-center text-sm text-muted-foreground">
                           No audio briefs generated yet
                         </td>
                       </tr>

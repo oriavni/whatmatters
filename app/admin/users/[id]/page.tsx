@@ -17,6 +17,17 @@ function formatDate(d: string | null | undefined) {
   });
 }
 
+function digestCost(tokensIn: number | null, tokensOut: number | null): string {
+  if (tokensIn == null && tokensOut == null) return "—";
+  const cost = ((tokensIn ?? 0) / 1_000_000 * 0.15) + ((tokensOut ?? 0) / 1_000_000 * 0.60);
+  return `$${cost.toFixed(4)}`;
+}
+
+function audioCost(ttsChars: number | null): string {
+  if (ttsChars == null) return "—";
+  return `$${(ttsChars / 1_000_000 * 15).toFixed(4)}`;
+}
+
 function formatDuration(start: string | null | undefined, end: string | null | undefined) {
   if (!start || !end) return "—";
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -53,7 +64,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
     supabase.from("sources").select("*").eq("user_id", id).order("created_at", { ascending: false }),
     supabase.from("raw_items").select("id, subject, sender_email, received_at, is_processed, source_id")
       .eq("user_id", id).order("received_at", { ascending: false }).limit(10),
-    supabase.from("digests").select("id, subject, status, sent_at, started_at, finished_at, error_message, created_at")
+    supabase.from("digests").select("id, subject, status, sent_at, started_at, finished_at, error_message, created_at, llm_tokens_input, llm_tokens_output" as "id, subject, status, sent_at, started_at, finished_at, error_message, created_at")
       .eq("user_id", id).order("created_at", { ascending: false }).limit(10),
     supabase.from("reply_actions").select("id, action, raw_reply, via, parsed_at")
       .eq("user_id", id).order("parsed_at", { ascending: false }).limit(10),
@@ -63,7 +74,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
       .eq("user_id", id).gt("digests_remaining", 0),
     supabase.from("user_preferences").select("*").eq("user_id", id).maybeSingle(),
     supabase.from("audio_digests")
-      .select("id, status, file_size_bytes, error_message, created_at")
+      .select("id, status, file_size_bytes, tts_chars, error_message, created_at" as "id, status, file_size_bytes, error_message, created_at")
       .eq("user_id", id)
       .order("created_at", { ascending: false })
       .limit(10),
@@ -79,12 +90,16 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
     id: string; subject: string | null; status: string; sent_at: string | null;
     started_at: string | null; finished_at: string | null;
     error_message: string | null; created_at: string;
+    llm_tokens_input: number | null; llm_tokens_output: number | null;
   }>;
   const replies = repliesResult.data ?? [];
   const interests = interestsResult.data ?? [];
   const suppressions = suppressionsResult.data ?? [];
   const prefs = prefsResult.data;
-  const audioRows = audioResult.data ?? [];
+  const audioRows = (audioResult.data ?? []) as unknown as Array<{
+    id: string; status: string; file_size_bytes: number | null;
+    tts_chars: number | null; error_message: string | null; created_at: string;
+  }>;
 
   const inboundAddress = `${user.inbound_slug}@${config.postmark.inboundDomain}`;
 
@@ -264,7 +279,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    {["Subject", "Status", "Duration", "Sent", "Error"].map((h) => (
+                    {["Subject", "Status", "Duration", "Cost", "Sent", "Error"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -286,6 +301,9 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                         {formatDuration(d.started_at ?? d.created_at, d.finished_at)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">
+                        {digestCost(d.llm_tokens_input, d.llm_tokens_output)}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(d.sent_at)}</td>
                       <td className="px-3 py-2 text-xs text-destructive max-w-[180px] truncate">
@@ -348,7 +366,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    {["Created", "Status", "Size", "Error"].map((h) => (
+                    {["Created", "Status", "Size", "Cost", "Error"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -370,6 +388,9 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {a.file_size_bytes != null ? `${Math.round(a.file_size_bytes / 1024)} KB` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">
+                        {audioCost(a.tts_chars)}
                       </td>
                       <td className="px-3 py-2 text-xs text-destructive max-w-xs truncate">
                         {a.error_message ?? "—"}

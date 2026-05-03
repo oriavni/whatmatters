@@ -13,7 +13,7 @@ export async function clusterItems(
   userId: string,
   digestId: string,
   itemIds: string[]
-): Promise<string[]> {
+): Promise<{ clusterIds: string[]; tokensIn: number; tokensOut: number }> {
   const supabase = createServiceClient();
 
   // ── Load items + source names ─────────────────────────────────────────────
@@ -41,7 +41,7 @@ export async function clusterItems(
   const preGroups = preprocess(rawItems as RawItemMinimal[], sourceNames);
 
   if (preGroups.length === 0) {
-    return [];
+    return { clusterIds: [], tokensIn: 0, tokensOut: 0 };
   }
 
   // Flatten pre-groups into the LLM input format
@@ -103,5 +103,9 @@ export async function clusterItems(
     throw new Error(`clusterItems: insert clusters failed — ${insertError?.message}`);
   }
 
-  return inserted.map((r) => r.id);
+  return {
+    clusterIds: inserted.map((r) => r.id),
+    tokensIn: response.usage?.prompt_tokens ?? 0,
+    tokensOut: response.usage?.completion_tokens ?? 0,
+  };
 }
