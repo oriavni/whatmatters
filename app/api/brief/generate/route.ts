@@ -70,6 +70,42 @@ export async function POST() {
     );
   }
 
+  // Guard: trial limits — 3 digests within 3 days for non-active-paid users.
+  const [{ data: userRow }, { data: subRow }] = await Promise.all([
+    service.from("users").select("is_premium_override").eq("id", user.id).single(),
+    service.from("subscriptions").select("status").eq("user_id", user.id).maybeSingle(),
+  ]);
+
+  const isActivePremium =
+    userRow?.is_premium_override === true || subRow?.status === "active";
+
+  if (!isActivePremium) {
+    const TRIAL_DAYS = 3;
+    const TRIAL_DIGEST_CAP = 3;
+    const trialWindowMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+    const accountAgeMs = Date.now() - new Date(user.created_at).getTime();
+
+    if (accountAgeMs > trialWindowMs) {
+      return NextResponse.json(
+        { error: "Your free trial has expired. Upgrade to keep generating Briefs.", reason: "trial_expired" },
+        { status: 403 }
+      );
+    }
+
+    const { count: digestCount } = await service
+      .from("digests")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .not("status", "eq", "failed");
+
+    if ((digestCount ?? 0) >= TRIAL_DIGEST_CAP) {
+      return NextResponse.json(
+        { error: `You've used all ${TRIAL_DIGEST_CAP} Briefs included in your free trial. Upgrade to generate more.`, reason: "trial_cap_reached" },
+        { status: 403 }
+      );
+    }
+  }
+
   // Fire the Inngest digest generation event.
   // The function creates the digest row and handles the full pipeline.
   await inngest.send({
