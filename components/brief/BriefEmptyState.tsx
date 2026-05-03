@@ -66,8 +66,14 @@ interface BriefEmptyStateProps {
  * processing  — sources added, items not yet available (RSS still being fetched)
  * ready-first — items available → show "Generate your first Brief" CTA
  */
-function getPhase(hasSources: boolean, newCount: number | null): Phase {
+function getPhase(
+  hasSources: boolean,
+  newCount: number | null,
+  isGeneratingFirst: boolean,
+): Phase {
   if (!hasSources) return "onboarding";
+  // Once generation has been kicked off, never flash back to "processing"
+  if (isGeneratingFirst) return "ready-first";
   if (newCount !== null && newCount > 0) return "ready-first";
   return "processing";
 }
@@ -83,12 +89,12 @@ export function BriefEmptyState({
   isGeneratingFirst = false,
   onSourceAdded,
 }: BriefEmptyStateProps) {
-  const phase = getPhase(hasSources, newCount);
+  const phase = getPhase(hasSources, newCount, isGeneratingFirst);
 
   // ── Processing state: source added, waiting for first items ───────────────
   if (phase === "processing") {
     return (
-      <div className="space-y-4 animate-in fade-in-0 duration-300">
+      <div key="processing" className="space-y-4 animate-in fade-in-0 duration-300">
         <div className="flex items-center gap-3">
           <Loader2 className="size-4 animate-spin text-muted-foreground shrink-0" />
           <div className="space-y-0.5">
@@ -103,7 +109,7 @@ export function BriefEmptyState({
   // ── Ready-first state: items available, waiting to generate first digest ───
   if (phase === "ready-first") {
     return (
-      <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+      <div key="ready-first" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
         {/* Success banner */}
         <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 flex items-start gap-3">
           <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
@@ -150,7 +156,7 @@ export function BriefEmptyState({
 
   // ── Onboarding state: no sources yet ──────────────────────────────────────
   return (
-    <div className="space-y-8">
+    <div key="onboarding" className="space-y-8 animate-in fade-in-0 duration-200">
       {/* Title */}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">Create your first Brief</h2>
