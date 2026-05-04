@@ -36,14 +36,14 @@ export async function synthesizeClusters(
   const allItemIds = clusters.flatMap((c) => c.raw_item_ids as string[]);
   const { data: items } = await supabase
     .from("raw_items")
-    .select("id, subject, body_text")
+    .select("id, subject, body_text, summary")
     .in("id", allItemIds);
 
   const itemTextById = new Map<string, string>(
     (items ?? []).map((item) => [
       item.id,
-      // Use body_text excerpt; fall back to subject
-      ((item.body_text ?? "").slice(0, 600) || item.subject) ?? "",
+      // Use body_text excerpt; fall back to pre-extracted summary; finally subject
+      ((item.body_text ?? "").slice(0, 600) || item.summary || item.subject) ?? "",
     ])
   );
 
@@ -104,11 +104,11 @@ export async function synthesizeCluster(clusterId: string): Promise<string> {
 
   const { data: items } = await supabase
     .from("raw_items")
-    .select("id, subject, body_text")
+    .select("id, subject, body_text, summary")
     .in("id", cluster.raw_item_ids as string[]);
 
   const itemTexts = (items ?? [])
-    .map((item) => (item.body_text ?? "").slice(0, 600) || (item.subject ?? ""))
+    .map((item) => (item.body_text ?? "").slice(0, 600) || item.summary || (item.subject ?? ""))
     .filter((t) => t.length > 0);
 
   const { system, user } = buildSynthesisPrompt(cluster.topic, itemTexts);
