@@ -9,6 +9,7 @@ import { PlanSelect } from "@/components/admin/PlanSelect";
 import { SimulateReplyForm } from "@/components/admin/SimulateReplyForm";
 import { PremiumToggle } from "@/components/admin/PremiumToggle";
 import { FreezeToggle } from "@/components/admin/FreezeToggle";
+import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 
 function formatDate(d: string | null | undefined) {
   if (!d) return "—";
@@ -132,6 +133,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
             <PlanSelect userId={user.id} currentPlan={plan} />
             <ForceGenerateButton userId={user.id} />
             <ResetPreferencesButton userId={user.id} />
+            <DeleteUserButton userId={user.id} userEmail={user.email ?? ""} />
           </div>
         </div>
 

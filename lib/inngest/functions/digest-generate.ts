@@ -145,7 +145,10 @@ export const digestGenerate = inngest.createFunction(
     }
 
     // ── Step 4: Score clusters (deterministic) ────────────────────────────
-    await step.run("score", () => scoreClusters(user_id, clusterIds));
+    // Pass the LLM's salience map so the scoring formula can incorporate it.
+    await step.run("score", () =>
+      scoreClusters(user_id, clusterIds, clusterResult.salienceByClusterId)
+    );
 
     // ── Step 4.5: Apply topic suppressions ────────────────────────────────
     // Remove clusters whose topic the user has temporarily suppressed.

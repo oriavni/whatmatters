@@ -4,10 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/lib/button-variants";
 import { Badge } from "@/components/ui/badge";
 import { CopyAddressButton } from "@/components/account/CopyAddressButton";
+import { DeleteAccountButton } from "@/components/account/DeleteAccountButton";
 import { config } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Account" };
@@ -93,12 +93,12 @@ export default async function AccountPage() {
       {/* Danger zone */}
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Danger zone</h2>
-        <Button variant="destructive" size="sm" disabled>
-          Delete account
-        </Button>
         <p className="text-xs text-muted-foreground">
-          Account deletion is not yet available. Contact support.
+          Deactivating your account immediately freezes it — no more Briefs,
+          emails, or AI processing. Your data is retained and the action can be
+          reversed by contacting support.
         </p>
+        <DeleteAccountButton email={user.email ?? ""} />
       </section>
     </div>
   );

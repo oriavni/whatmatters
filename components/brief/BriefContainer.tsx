@@ -423,7 +423,7 @@ export function BriefContainer({
             hasDigest={true}
             hasSources={true}
           />
-          <ReadNowButton onGenerate={handleGenerate} newCount={newCount} />
+          <ReadNowButton onGenerate={handleGenerate} newCount={newCount} isGenerating={isGenerating} />
         </div>
       </div>
 

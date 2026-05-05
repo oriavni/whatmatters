@@ -5,6 +5,9 @@
  *   - User's explicit topic interest weight (from topic_interests table)
  *   - Number of items in the cluster (more coverage = more important)
  *   - Recency of the most recent item in the cluster
+ *   - LLM-assigned salience 1–5 (from clustering step, passed in salienceByClusterId)
+ *   - Source diversity bonus: multiple independent sources covering the same
+ *     story signals broader importance
  *
  * Updates topic_clusters.rank in place.
  */
@@ -15,7 +18,13 @@ const DEFAULT_INTEREST_WEIGHT = 1.0;
 
 export async function scoreClusters(
   userId: string,
-  clusterIds: string[]
+  clusterIds: string[],
+  /**
+   * Salience values (1–5) from the LLM clustering step, keyed by cluster DB id.
+   * Optional: plain Record so it survives Inngest step serialisation.
+   * Missing entries default to 3 (neutral).
+   */
+  salienceByClusterId?: Record<string, number>
 ): Promise<void> {
   if (clusterIds.length === 0) return;
 
@@ -41,15 +50,18 @@ export async function scoreClusters(
     (interests ?? []).map((i) => [i.topic.toLowerCase(), i.weight])
   );
 
-  // Load recency data: most recent raw_item per cluster
+  // Load recency + source_id data for all items in one query
   const allItemIds = clusters.flatMap((c) => c.raw_item_ids as string[]);
-  const { data: itemRecency } = await supabase
+  const { data: itemData } = await supabase
     .from("raw_items")
-    .select("id, received_at")
+    .select("id, received_at, source_id")
     .in("id", allItemIds);
 
   const recencyById = new Map<string, string>(
-    (itemRecency ?? []).map((r) => [r.id, r.received_at])
+    (itemData ?? []).map((r) => [r.id, r.received_at])
+  );
+  const sourceIdById = new Map<string, string | null>(
+    (itemData ?? []).map((r) => [r.id, r.source_id])
   );
 
   // Score each cluster
@@ -58,10 +70,7 @@ export async function scoreClusters(
     const itemCount = itemIds.length;
 
     // Interest weight: try exact match, then partial/word match, then default
-    const interestWeight = resolveInterestWeight(
-      cluster.topic,
-      interestMap
-    );
+    const interestWeight = resolveInterestWeight(cluster.topic, interestMap);
 
     // Recency factor: 1.0 for last hour, decaying to 0.5 at 7 days
     const latestTs = itemIds
@@ -72,8 +81,26 @@ export async function scoreClusters(
       : 168;
     const recencyFactor = Math.max(0.5, 1 - ageHours / 336); // 336h = 14 days
 
+    // Salience factor: LLM editorial judgment (1–5 → 0.33–1.67 multiplier)
+    // salience=3 (default) → 1.0 (no change to existing behaviour for old data)
+    const salience = salienceByClusterId?.[cluster.id] ?? 3;
+    const salienceFactor = salience / 3;
+
+    // Source diversity bonus: each additional unique source adds 15%
+    // This captures the "multi-source corroboration = more important" rule
+    // without requiring a schema change.
+    const uniqueSourceCount = new Set(
+      itemIds.map((id) => sourceIdById.get(id)).filter(Boolean)
+    ).size;
+    const sourceDiversityFactor = 1.0 + Math.max(0, uniqueSourceCount - 1) * 0.15;
+
     // Final score — higher is ranked first (rank = 0 = top)
-    const score = interestWeight * Math.log(itemCount + 1) * recencyFactor;
+    const score =
+      interestWeight *
+      Math.log(itemCount + 1) *
+      recencyFactor *
+      salienceFactor *
+      sourceDiversityFactor;
 
     return { id: cluster.id, score };
   });

@@ -104,24 +104,31 @@ export const digestSend = inngest.createFunction(
         (items ?? []).map((r) => r.source_id).filter(Boolean)
       )] as string[];
 
+      // Include url so source names in the email can be hyperlinked
       const { data: sources } = await supabase
         .from("sources")
-        .select("id, name")
+        .select("id, name, url")
         .in("id", sourceIds);
 
-      const sourceNameById = new Map<string, string>(
-        (sources ?? []).map((s) => [s.id, s.name])
+      const sourceById = new Map<string, { name: string; url: string | null }>(
+        (sources ?? []).map((s) => [s.id, { name: s.name, url: s.url ?? null }])
       );
 
       const itemById = new Map(
-        (items ?? []).map((item) => ({
-          id: item.id,
-          title: (item.subject ?? "").trim(),
-          sourceUrl: (item.metadata as { source_url?: string })?.source_url ?? null,
-          sourceName: item.source_id
-            ? (sourceNameById.get(item.source_id) ?? "Unknown")
-            : "Unknown",
-        })).map((item) => [item.id, item])
+        (items ?? []).map((item) => {
+          const src = item.source_id ? (sourceById.get(item.source_id) ?? null) : null;
+          return [
+            item.id,
+            {
+              id: item.id,
+              title: (item.subject ?? "").trim(),
+              sourceUrl: (item.metadata as { source_url?: string })?.source_url ?? null,
+              sourceName: src?.name ?? "Unknown",
+              /** Kept for building the per-cluster sources list; not part of email item shape */
+              _sourceId: item.source_id ?? null,
+            },
+          ];
+        })
       );
 
       // Determine full-block set by score gap detection (importance, not position)
@@ -129,16 +136,35 @@ export const digestSend = inngest.createFunction(
         (clusterRows ?? []).map((c) => ({ id: c.id, score: c.score }))
       );
 
-      const clusters: DigestClusterForEmail[] = (clusterRows ?? []).map((c) => ({
-        id: c.id,
-        topic: c.topic,
-        summary: c.summary,
-        rank: c.rank,
-        isFullBlock: fullBlockIds.has(c.id),
-        items: (c.raw_item_ids as string[])
+      const clusters: DigestClusterForEmail[] = (clusterRows ?? []).map((c) => {
+        const clusterItems = (c.raw_item_ids as string[])
           .map((id) => itemById.get(id))
-          .filter((item): item is NonNullable<typeof item> => item !== undefined),
-      }));
+          .filter((item): item is NonNullable<ReturnType<typeof itemById.get>> => item !== undefined);
+
+        // Build unique sources list (deduped by source ID, preserving order)
+        const seen = new Set<string>();
+        const uniqueSources: { name: string; url: string | null }[] = [];
+        for (const item of clusterItems) {
+          if (item._sourceId && !seen.has(item._sourceId)) {
+            seen.add(item._sourceId);
+            const src = sourceById.get(item._sourceId);
+            if (src) uniqueSources.push(src);
+          }
+        }
+
+        return {
+          id: c.id,
+          topic: c.topic,
+          summary: c.summary,
+          rank: c.rank,
+          isFullBlock: fullBlockIds.has(c.id),
+          // Strip the internal _sourceId field from the public items shape
+          items: clusterItems.map(({ id, title, sourceUrl, sourceName }) => ({
+            id, title, sourceUrl, sourceName,
+          })),
+          sources: uniqueSources,
+        };
+      });
 
       return { digest, clusters, userEmail: userRow.email };
     });

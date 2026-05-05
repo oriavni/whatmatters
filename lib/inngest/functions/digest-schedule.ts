@@ -15,6 +15,7 @@
  */
 import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
+import { TRIAL_DAYS, TRIAL_DIGEST_CAP } from "@/lib/digest/trial";
 
 /**
  * Convert a local clock hour (from digest_time "HH:MM") to the equivalent
@@ -173,13 +174,80 @@ export const digestSchedule = inngest.createFunction(
       return { fired: 0, message: "All due users already have digests" };
     }
 
+    // ── Step 2.5: Filter out trial-expired / trial-capped users ──────────
+    // Trial limits must be enforced on all generation paths, not only the
+    // web button. Non-premium users who have expired or exhausted their
+    // 3-digest trial cap must not receive scheduled deliveries.
+    const trialApprovedUsers = await step.run("trial-check", async () => {
+      const supabase = createServiceClient();
+      const userIds = usersToFire.map((u) => u.user_id);
+
+      // Load premium status + account age for all candidates in one shot
+      const [{ data: userRows }, { data: subRows }, { data: digestRows }] =
+        await Promise.all([
+          supabase
+            .from("users")
+            .select("id, is_premium_override, created_at" as "id")
+            .in("id", userIds),
+          supabase
+            .from("subscriptions")
+            .select("user_id, status")
+            .in("user_id", userIds)
+            .eq("status", "active"),
+          // Fetch digest counts for non-failed digests (needed for cap check)
+          supabase
+            .from("digests")
+            .select("user_id")
+            .in("user_id", userIds)
+            .not("status", "eq", "failed"),
+        ]);
+
+      type UserRow = { id: string; is_premium_override?: boolean; created_at?: string };
+      const rows = (userRows ?? []) as unknown as UserRow[];
+
+      const premiumOverrideSet = new Set(
+        rows.filter((u) => u.is_premium_override).map((u) => u.id)
+      );
+      const activeSubSet = new Set((subRows ?? []).map((s) => s.user_id as string));
+      const isPremium = (id: string) =>
+        premiumOverrideSet.has(id) || activeSubSet.has(id);
+
+      // Count non-failed digests per user (for cap check)
+      const digestCountMap = new Map<string, number>();
+      for (const row of digestRows ?? []) {
+        const uid = row.user_id as string;
+        digestCountMap.set(uid, (digestCountMap.get(uid) ?? 0) + 1);
+      }
+
+      const createdAtMap = new Map(rows.map((u) => [u.id, u.created_at ?? ""]));
+      const trialWindowMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+
+      return usersToFire.filter(({ user_id }) => {
+        if (isPremium(user_id)) return true;
+
+        // Non-premium: check trial window
+        const accountAgeMs = nowMs - new Date(createdAtMap.get(user_id) ?? 0).getTime();
+        if (accountAgeMs > trialWindowMs) return false; // expired
+
+        // Check digest cap
+        if ((digestCountMap.get(user_id) ?? 0) >= TRIAL_DIGEST_CAP) return false; // capped
+
+        return true;
+      });
+    });
+
+    if (trialApprovedUsers.length === 0) {
+      return { fired: 0, message: "All due users are outside trial limits or already have digests" };
+    }
+
     // ── Step 3: Fire digest/generate for each qualifying user ─────────────
     await step.run("fire-events", async () => {
       const periodEnd   = now.toISOString();
       const periodStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       await inngest.send(
-        usersToFire.map(({ user_id }) => ({
+        trialApprovedUsers.map(({ user_id }) => ({
           name: "digest/generate" as const,
           data: {
             user_id,
@@ -192,9 +260,10 @@ export const digestSchedule = inngest.createFunction(
     });
 
     return {
-      fired:   usersToFire.length,
-      skipped: dueUsers.length - usersToFire.length,
-      users:   usersToFire.map((u) => u.user_id),
+      fired:          trialApprovedUsers.length,
+      skipped:        dueUsers.length - trialApprovedUsers.length,
+      trialFiltered:  usersToFire.length - trialApprovedUsers.length,
+      users:          trialApprovedUsers.map((u) => u.user_id),
     };
   }
 );

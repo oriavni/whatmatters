@@ -1,9 +1,10 @@
 /**
- * Prompt for topic clustering.
+ * Prompt for story-level clustering.
  *
- * The LLM receives pre-grouped, deduplicated items. Its job is refinement:
- * merge related groups, split unrelated ones, assign clean topic labels.
- * Using pre-groups rather than raw items keeps the prompt compact and cheap.
+ * The LLM receives pre-grouped, deduplicated items and produces story-level
+ * clusters across all sources together. New fields (salience, cluster_type,
+ * key_entities, source_count, sources, has_multiple_sources) are all optional
+ * so older model output that omits them degrades gracefully.
  */
 
 export interface ClusterInputItem {
@@ -13,22 +14,84 @@ export interface ClusterInputItem {
   source: string;
 }
 
-export interface ClusterOutput {
-  clusters: Array<{
-    label: string;       // short topic label e.g. "AI / GPT-5 Release"
-    item_ids: string[];
-  }>;
+export interface ClusterItemOutput {
+  label: string;       // story-level label e.g. "Apple Delays Siri Upgrade"
+  item_ids: string[];
+  // ── New optional fields (backwards-compatible) ───────────────────────────
+  /** Editorial importance 1–5. Missing → default 3. */
+  salience?: number;
+  /** Story type. Missing → default "other". */
+  cluster_type?: "event" | "trend" | "analysis" | "announcement" | "guide" | "opinion" | "other";
+  /** Named people, companies, products, places mentioned. Missing → []. */
+  key_entities?: string[];
+  /** Number of unique sources contributing items. Missing → computed from items. */
+  source_count?: number;
+  /** Unique source names in this cluster. Missing → computed from items. */
+  sources?: string[];
+  /** Shorthand for source_count > 1. Missing → computed. */
+  has_multiple_sources?: boolean;
 }
 
-const SYSTEM = `You are a topic clustering engine for a personal newsletter digest.
-You receive articles and emails. Group them into coherent topic clusters with a short label.
+/** @deprecated use ClusterItemOutput */
+export interface ClusterOutput {
+  clusters: ClusterItemOutput[];
+}
+
+const SYSTEM = `You are the story clustering engine for a personal intelligence digest.
+
+You receive all new article and newsletter/email items from all of the user's connected sources for the current digest window.
+
+Your job is to group them into story-level clusters that a reader would expect to see as one digest entry.
+
+Core behavior:
+- One digest combines all new stories from all connected sources.
+- Cluster across all sources together. Do not create separate sections per source.
+- When multiple sources cover the same story, place them in one cluster.
+- Same-story coverage from several sources increases the cluster's importance.
+- A cluster represents one underlying development, event, announcement, trend, guide, or tightly related storyline.
 
 Rules:
 - Every item must appear in exactly one cluster.
-- Merge items covering the same story even from different sources.
-- Keep distinct topics separate even within the same domain.
-- Labels must be 3–6 words, title-case, specific (not "Technology News").
-- Return ONLY valid JSON: { "clusters": [ { "label": string, "item_ids": string[] } ] }`;
+- Cluster by the underlying story, not by publisher, domain, newsletter, or broad topic.
+- Merge items only when they describe the same development or clearly adjacent updates in the same story arc.
+- Keep items separate when the primary actor, action, stake, geography, or time window differs, even if they mention the same company or general topic.
+- If two items are exact or near duplicates, place them in the same cluster.
+- If two items cover the same story but provide different useful angles, place them in the same cluster.
+- If two items mention the same company/topic but cover different events, keep them separate.
+- If an item does not clearly belong with others, create a singleton cluster.
+- Ignore sponsorships, promotional blurbs, navigation text, newsletter intros, footers, and house ads unless they are the actual subject.
+- Use title + excerpt + source together. Do not rely on source name alone.
+- Prefer specific story labels over generic buckets.
+  Good: "Apple Delays Siri Upgrade to 2026"
+  Bad:  "Apple News"
+- Labels must be 4–8 words, title-case, concrete, and specific.
+- Order clusters by digest importance: broader user relevance first, then stronger impact, multiple-source corroboration, fresher developments, novelty, specificity.
+
+Salience — assign each cluster a score:
+5 = must include in the digest
+4 = important
+3 = useful but not essential
+2 = minor
+1 = low value
+
+Cluster types — use one of:
+event, trend, analysis, announcement, guide, opinion, other
+
+Return ONLY valid JSON in this exact shape — no markdown, no extra keys:
+{
+  "clusters": [
+    {
+      "label": string,
+      "item_ids": string[],
+      "salience": number,
+      "cluster_type": "event" | "trend" | "analysis" | "announcement" | "guide" | "opinion" | "other",
+      "key_entities": string[],
+      "source_count": number,
+      "sources": string[],
+      "has_multiple_sources": boolean
+    }
+  ]
+}`;
 
 export function buildClusteringPrompt(items: ClusterInputItem[]): {
   system: string;

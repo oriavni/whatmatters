@@ -33,6 +33,12 @@ interface ReadNowButtonProps {
    * 3+    = generate immediately
    */
   newCount?: number | null;
+  /**
+   * True while the full generation cycle is in progress (not just the API call).
+   * Keeps the button in a disabled "Generating…" state until the digest arrives
+   * or an error occurs. Prevents accidental double-generates on slow connections.
+   */
+  isGenerating?: boolean;
 }
 
 type TrialReason = "trial_expired" | "trial_cap_reached";
@@ -57,10 +63,15 @@ export function ReadNowButton({
   disabled = false,
   disabledTooltip = "Add at least one source to generate your Brief",
   newCount,
+  isGenerating = false,
 }: ReadNowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [trialModalReason, setTrialModalReason] = useState<TrialReason | null>(null);
+
+  // True while either: the API POST is in-flight (loading) OR the full
+  // generation pipeline is running (isGenerating from parent).
+  const isInProgress = loading || isGenerating;
 
   // Derive effective disabled state
   // newCount === 0 means "no new stories" — treat as disabled regardless of `disabled` prop
@@ -73,7 +84,7 @@ export function ReadNowButton({
   const exactCountTitle = newCount != null && newCount > 99 ? String(newCount) : null;
 
   function getLabel() {
-    if (loading) return "Generating…";
+    if (isInProgress) return "Generating…";
     if (newCount != null && newCount > 0) return `Read now (${displayCount})`;
     return "Read now";
   }
@@ -107,7 +118,7 @@ export function ReadNowButton({
   }
 
   async function handleClick() {
-    if (isDisabled || loading) return;
+    if (isDisabled || isInProgress) return;
 
     // Low-count confirmation gate
     if (newCount != null && newCount > 0 && newCount <= 2) {
@@ -124,11 +135,11 @@ export function ReadNowButton({
       variant="outline"
       size="sm"
       onClick={handleClick}
-      disabled={loading || isDisabled || isLoading}
+      disabled={isInProgress || isDisabled || isLoading}
       className="shrink-0 gap-1.5"
       style={isDisabled ? { pointerEvents: "none" } : undefined}
     >
-      {loading ? (
+      {isInProgress ? (
         <Loader2 className="size-3 animate-spin" />
       ) : (
         <Zap className="size-3" />

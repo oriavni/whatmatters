@@ -197,9 +197,16 @@ export function BriefEmptyState({
             <div>
               <p className="text-sm font-medium">Forward a newsletter</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Subscribe to any newsletter with your Brief address, or forward
-                emails you already receive. Some senders require a confirmation
-                email before issues start arriving.
+                Subscribe to any newsletter using your Brief address below, or
+                forward emails you already receive. Some senders send a
+                confirmation link before issues arrive — those are forwarded to
+                your real inbox automatically.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                <strong>Newsletter requires a phone number?</strong> Subscribe
+                with your normal email first, then forward each issue to your
+                Brief address. Gmail OAuth forwarding (coming soon) will handle
+                this automatically.
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-1.5 w-fit max-w-full">

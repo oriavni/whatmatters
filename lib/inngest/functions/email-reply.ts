@@ -18,6 +18,7 @@ import { buildReplyParsingPrompt, type ParsedReply } from "@/lib/llm/prompts/par
 import { sendEmail } from "@/lib/email/postmark";
 import { config } from "@/lib/config";
 import { writeJobLog } from "@/lib/inngest/log";
+import { checkTrialAllowed } from "@/lib/digest/trial";
 
 const APP_URL = config.app.url;
 
@@ -109,6 +110,9 @@ function confirmationText(
     clusterTopic?: string | null;
     scheduleSummary?: string | null;
     sourceName?: string | null;
+    /** Set when the user's trial has expired or they've hit the cap */
+    trialBlocked?: boolean;
+    trialReason?: "trial_expired" | "trial_cap_reached";
   }
 ): { subject: string; text: string } {
   switch (parsed.intent) {
@@ -118,6 +122,15 @@ function confirmationText(
         text: `Got it — I'll show less on "${extras.clusterTopic ?? parsed.topic}" in future digests.`,
       };
     case "more_topic":
+      if (extras.trialBlocked) {
+        return {
+          subject: "Brief: trial limit reached",
+          text:
+            extras.trialReason === "trial_expired"
+              ? `Your 3-day free trial has ended — I can't generate a new Brief. Upgrade at ${config.app.url}/pricing to keep going.`
+              : `You've used all 3 Briefs included in your free trial. Upgrade at ${config.app.url}/pricing to generate more.`,
+        };
+      }
       return {
         subject: "Brief: generating more",
         text: `On it — I've queued a fresh digest. You'll receive it shortly.`,
@@ -137,6 +150,15 @@ function confirmationText(
           : `I updated your schedule based on your request. Reply again if you'd like to adjust.`,
       };
     case "read_now":
+      if (extras.trialBlocked) {
+        return {
+          subject: "Brief: trial limit reached",
+          text:
+            extras.trialReason === "trial_expired"
+              ? `Your 3-day free trial has ended — I can't generate a new Brief. Upgrade at ${config.app.url}/pricing to keep going.`
+              : `You've used all 3 Briefs included in your free trial. Upgrade at ${config.app.url}/pricing to generate more.`,
+        };
+      }
       return {
         subject: "Brief: generating now",
         text: `Your fresh Brief is being generated. Check your inbox in a few minutes.`,
@@ -362,6 +384,11 @@ export const emailReplyParse = inngest.createFunction(
               { onConflict: "user_id,topic" }
             );
           }
+          // Enforce trial limits before firing — same rules as the web button
+          const moreTrial = await checkTrialAllowed(userId, supabase);
+          if (!moreTrial.allowed) {
+            return { clusterTopic: matchedCluster?.topic ?? parsed.topic, trialBlocked: true, trialReason: moreTrial.reason };
+          }
           await inngest.send({
             name: "digest/generate",
             data: { user_id: userId },
@@ -395,6 +422,11 @@ export const emailReplyParse = inngest.createFunction(
         }
 
         case "read_now": {
+          // Enforce trial limits before firing — same rules as the web button
+          const readNowTrial = await checkTrialAllowed(userId, supabase);
+          if (!readNowTrial.allowed) {
+            return { trialBlocked: true, trialReason: readNowTrial.reason };
+          }
           await inngest.send({
             name: "digest/generate",
             data: { user_id: userId },

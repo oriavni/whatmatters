@@ -49,6 +49,13 @@ export interface DigestClusterForEmail {
     sourceUrl: string | null;
     sourceName: string;
   }[];
+  /**
+   * Unique sources that contributed items to this cluster.
+   * Deduped by source ID in digest-send before it reaches the template.
+   * Optional for backwards compatibility — Attribution falls back to items
+   * if this is absent.
+   */
+  sources?: { name: string; url: string | null }[];
 }
 
 export interface DigestEmailProps {
@@ -139,7 +146,7 @@ export function DigestEmail({
                   <Text style={s.synthesis}>{cluster.summary}</Text>
                 )}
 
-                <Attribution items={cluster.items} />
+                <Attribution items={cluster.items} sources={cluster.sources} />
 
                 {cluster.items[0]?.sourceUrl && (
                   <Link href={cluster.items[0].sourceUrl} style={s.readLink}>
@@ -188,16 +195,79 @@ export function DigestEmail({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Attribution({ items }: { items: DigestClusterForEmail["items"] }) {
-  const names = [...new Set(items.map((i) => i.sourceName))];
-  if (names.length === 0) return null;
-  return <Text style={s.attribution}>via {names.join(", ")}</Text>;
+/**
+ * Source attribution line for full story blocks.
+ *
+ * One source  → "Source: Bloomberg"
+ * Multiple    → "Mentioned by 3 sources: Bloomberg, The Verge, Stratechery"
+ *
+ * Prefers the pre-deduped `sources` array (with home URLs) when available.
+ * Falls back to deduplicating by name from `items` (no URLs) for backwards compat.
+ */
+function Attribution({
+  items,
+  sources,
+}: {
+  items: DigestClusterForEmail["items"];
+  sources?: DigestClusterForEmail["sources"];
+}) {
+  // Prefer pre-deduped sources list; fall back to name-based dedup from items
+  const unique: Array<{ name: string; url: string | null }> =
+    sources && sources.length > 0
+      ? sources
+      : [
+          ...new Map(
+            items.map((i) => [i.sourceName, { name: i.sourceName, url: null }])
+          ).values(),
+        ];
+
+  if (unique.length === 0) return null;
+
+  const prefix =
+    unique.length === 1
+      ? "Source: "
+      : `Mentioned by ${unique.length} sources: `;
+
+  return (
+    <Text style={s.attribution}>
+      {prefix}
+      {unique.map((src, i) => (
+        <React.Fragment key={src.name + String(i)}>
+          {i > 0 && ", "}
+          {src.url ? (
+            <Link href={src.url} style={{ color: "#999999", textDecoration: "underline" }}>
+              {src.name}
+            </Link>
+          ) : (
+            src.name
+          )}
+        </React.Fragment>
+      ))}
+    </Text>
+  );
 }
 
 function Mention({ cluster }: { cluster: DigestClusterForEmail }) {
   const excerpt = cluster.summary ?? cluster.items[0]?.title ?? "";
-  const sources = [...new Set(cluster.items.map((i) => i.sourceName))];
   const sourceUrl = cluster.items[0]?.sourceUrl ?? null;
+
+  // Prefer pre-deduped sources; fall back to name dedup from items
+  const unique: Array<{ name: string; url: string | null }> =
+    cluster.sources && cluster.sources.length > 0
+      ? cluster.sources
+      : [
+          ...new Map(
+            cluster.items.map((i) => [i.sourceName, { name: i.sourceName, url: null }])
+          ).values(),
+        ];
+
+  const sourceLabel =
+    unique.length === 0
+      ? null
+      : unique.length === 1
+      ? `Source: ${unique[0].name}`
+      : `${unique.length} sources: ${unique.map((s) => s.name).join(", ")}`;
+
   return (
     <Text style={s.mention}>
       {sourceUrl ? (
@@ -208,8 +278,8 @@ function Mention({ cluster }: { cluster: DigestClusterForEmail }) {
         <span style={s.mentionTopic}>{cluster.topic}</span>
       )}
       {excerpt ? ` — ${excerpt}` : ""}
-      {sources.length > 0 && (
-        <span style={s.mentionSource}> · {sources.join(", ")}</span>
+      {sourceLabel && (
+        <span style={s.mentionSource}> · {sourceLabel}</span>
       )}
     </Text>
   );

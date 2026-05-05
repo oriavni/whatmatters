@@ -31,7 +31,18 @@ export function QuickMentions({ clusters }: QuickMentionsProps) {
 }
 
 function MentionItem({ cluster }: { cluster: BriefCluster }) {
-  const sourceNames = cluster.sources.map((s) => s.name).join(", ");
+  /**
+   * Compact source label for the mention line:
+   *   1 source  → "Source: The Verge"
+   *   multiple  → "2 sources: Bloomberg, The Verge"
+   */
+  const { sources } = cluster;
+  const sourceLabel =
+    sources.length === 0
+      ? null
+      : sources.length === 1
+      ? `Source: ${sources[0].name}`
+      : `${sources.length} sources: ${sources.map((s) => s.name).join(", ")}`;
 
   return (
     <li className="flex items-start gap-2 text-sm">
@@ -52,8 +63,8 @@ function MentionItem({ cluster }: { cluster: BriefCluster }) {
         {cluster.summary && (
           <span className="text-muted-foreground"> — {cluster.summary}</span>
         )}
-        {sourceNames && (
-          <span className="text-muted-foreground"> · {sourceNames}</span>
+        {sourceLabel && (
+          <span className="text-muted-foreground"> · {sourceLabel}</span>
         )}
       </p>
     </li>
