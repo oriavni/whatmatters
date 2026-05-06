@@ -151,17 +151,15 @@ export function StoryBlockActions({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-          />
-        }
-        aria-label="More actions"
-      >
-        <MoreHorizontal className="size-3.5" />
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="More actions"
+        >
+          <MoreHorizontal className="size-3.5" />
+        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="min-w-44">
@@ -207,13 +205,11 @@ export function StoryBlockActions({
         {sourceUrl && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              render={
-                <a href={sourceUrl} target="_blank" rel="noopener noreferrer" />
-              }
-            >
-              <ExternalLink className="size-3.5" />
-              Read original
+            <DropdownMenuItem asChild>
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="size-3.5" />
+                Read original
+              </a>
             </DropdownMenuItem>
           </>
         )}

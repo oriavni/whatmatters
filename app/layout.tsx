@@ -34,7 +34,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground">
-        <TooltipProvider delay={300}>
+        <TooltipProvider delayDuration={300}>
           {children}
         </TooltipProvider>
         <Toaster position="bottom-right" />

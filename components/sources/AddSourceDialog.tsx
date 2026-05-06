@@ -115,7 +115,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={children} />
+      <DialogTrigger asChild>{children}</DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

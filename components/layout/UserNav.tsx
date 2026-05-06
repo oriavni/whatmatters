@@ -14,6 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChevronsUpDown, LogOut, Settings, UserCircle, Zap } from "lucide-react";
@@ -35,37 +36,36 @@ function getInitials(email: string): string {
 
 export function UserNav({ email, isPremium }: UserNavProps) {
   const initials = getInitials(email);
+  const { isMobile } = useSidebar();
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <SidebarMenuButton
-                size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              />
-            }
-          >
-            <Avatar className="size-8 rounded-lg">
-              <AvatarFallback className="rounded-lg text-xs font-medium">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate text-xs text-muted-foreground">
-                {email}
-              </span>
-            </div>
-            <ChevronsUpDown className="ml-auto size-4" />
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar className="size-8 rounded-lg">
+                <AvatarFallback className="rounded-lg text-xs font-medium">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate text-xs text-muted-foreground">
+                  {email}
+                </span>
+              </div>
+              <ChevronsUpDown className="ml-auto size-4" />
+            </SidebarMenuButton>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            side="top"
+            side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
-            className="min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
@@ -89,18 +89,24 @@ export function UserNav({ email, isPremium }: UserNavProps) {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem render={<Link href="/app/account" />}>
-                <UserCircle />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/app/account">
+                  <UserCircle />
+                  Account
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/app/preferences" />}>
-                <Settings />
-                Preferences
+              <DropdownMenuItem asChild>
+                <Link href="/app/preferences">
+                  <Settings />
+                  Preferences
+                </Link>
               </DropdownMenuItem>
               {!isPremium && (
-                <DropdownMenuItem render={<Link href="/pricing" />}>
-                  <Zap />
-                  Upgrade to Pro
+                <DropdownMenuItem asChild>
+                  <Link href="/pricing">
+                    <Zap />
+                    Upgrade to Pro
+                  </Link>
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
@@ -108,9 +114,11 @@ export function UserNav({ email, isPremium }: UserNavProps) {
             <DropdownMenuSeparator />
 
             <form action={signout}>
-              <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
-                <LogOut />
-                Sign out
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full">
+                  <LogOut />
+                  Sign out
+                </button>
               </DropdownMenuItem>
             </form>
           </DropdownMenuContent>

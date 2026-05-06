@@ -8,10 +8,12 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
 import { BookOpen, Archive, Radio, Compass, Settings, Headphones, Lock, Zap } from "lucide-react";
 import { UserNav } from "./UserNav";
@@ -38,11 +40,13 @@ export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
       <SidebarHeader className="border-b-0">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/app/brief" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background">
-                <span className="text-[0.625rem] font-bold leading-none">W</span>
-              </div>
-              <span className="font-semibold text-sm tracking-tight">WhatMatters</span>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/app/brief">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background">
+                  <span className="text-[0.625rem] font-bold leading-none">W</span>
+                </div>
+                <span className="font-semibold text-sm tracking-tight">WhatMatters</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -50,6 +54,7 @@ export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
 
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
@@ -59,15 +64,17 @@ export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={<Link href={item.href} />}
+                      asChild
                       isActive={isActive}
                       tooltip={locked ? `${item.label} — Pro` : item.label}
                     >
-                      <Icon />
-                      <span>{item.label}</span>
-                      {locked && (
-                        <Lock className="ml-auto size-3 text-muted-foreground/60 shrink-0" />
-                      )}
+                      <Link href={item.href}>
+                        <Icon />
+                        <span>{item.label}</span>
+                        {locked && (
+                          <Lock className="ml-auto size-3 text-muted-foreground/60 shrink-0" />
+                        )}
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -80,13 +87,16 @@ export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
         {!isPremium && (
           <SidebarGroup className="mt-auto">
             <SidebarGroupContent>
-              <Link
-                href="/pricing"
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
-              >
-                <Zap className="size-3.5 shrink-0" />
-                <span>Upgrade to Pro</span>
-              </Link>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Upgrade to Pro">
+                    <Link href="/pricing">
+                      <Zap />
+                      <span>Upgrade to Pro</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -95,6 +105,7 @@ export function AppSidebar({ userEmail, isPremium }: AppSidebarProps) {
       <SidebarFooter>
         <UserNav email={userEmail} isPremium={isPremium} />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
