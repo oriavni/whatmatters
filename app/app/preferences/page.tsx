@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/get-user";
 import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { config } from "@/lib/config";
@@ -12,8 +12,7 @@ import { IgnoredTopicsList } from "@/components/preferences/IgnoredTopicsList";
 export const metadata: Metadata = { title: "Preferences" };
 
 export default async function PreferencesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
   const service = createServiceClient();

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getUser } from "@/lib/supabase/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
 import { SourcesPageContent } from "@/components/sources/SourcesPageContent";
@@ -7,12 +8,10 @@ import { SourcesPageContent } from "@/components/sources/SourcesPageContent";
 export const metadata: Metadata = { title: "Sources" };
 
 export default async function SourcesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from("users")
     .select("inbound_slug")

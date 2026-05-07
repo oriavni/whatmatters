@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/get-user";
 import { isUserPremium } from "@/lib/audio/premium";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -13,10 +13,7 @@ export default async function AppLayout({
 }) {
   // Guard: proxy.ts handles the redirect for unauthenticated users, but we
   // also check here so server components always have a confirmed user object.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) {
     redirect("/login");

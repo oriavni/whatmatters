@@ -1,6 +1,6 @@
-"use client";
+"use client"
 
-import { signout } from "@/app/actions/auth";
+import { signout } from "@/app/actions/auth"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,34 +9,34 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronsUpDown, LogOut, Settings, UserCircle, Zap } from "lucide-react";
-import Link from "next/link";
+} from "@/components/ui/sidebar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ChevronsUpDown, LogOut, Settings, UserCircle, Zap } from "lucide-react"
+import Link from "next/link"
 
 interface UserNavProps {
-  email: string;
-  isPremium: boolean;
+  email: string
+  isPremium: boolean
 }
 
 function getInitials(email: string): string {
-  const local = email.split("@")[0];
-  const parts = local.split(/[._-]/);
+  const local = email.split("@")[0]
+  const parts = local.split(/[._-]/)
   if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase()
   }
-  return local.slice(0, 2).toUpperCase();
+  return local.slice(0, 2).toUpperCase()
 }
 
 export function UserNav({ email, isPremium }: UserNavProps) {
-  const initials = getInitials(email);
-  const { isMobile } = useSidebar();
+  const initials = getInitials(email)
+  const { isMobile } = useSidebar()
 
   return (
     <SidebarMenu>
@@ -47,14 +47,15 @@ export function UserNav({ email, isPremium }: UserNavProps) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="size-8 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarFallback className="rounded-lg text-xs font-medium">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate text-xs text-muted-foreground">
-                  {email}
+                <span className="truncate font-medium">{email}</span>
+                <span className={`truncate text-xs ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                  {isPremium ? "Pro" : "Free plan"}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -62,30 +63,27 @@ export function UserNav({ email, isPremium }: UserNavProps) {
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
           >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5">
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg text-xs font-medium">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate text-xs text-muted-foreground">
-                      {email}
-                    </span>
-                    <span className={`text-[10px] font-medium ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                      {isPremium ? "Pro" : "Free plan"}
-                    </span>
-                  </div>
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg text-xs font-medium">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{email}</span>
+                  <span className={`truncate text-xs ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                    {isPremium ? "Pro" : "Free plan"}
+                  </span>
                 </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
+              </div>
+            </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
@@ -125,5 +123,5 @@ export function UserNav({ email, isPremium }: UserNavProps) {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
+  )
 }

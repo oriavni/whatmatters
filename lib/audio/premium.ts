@@ -7,11 +7,12 @@
  *
  * Monthly cap: 20 audio generations per rolling 30-day window.
  */
+import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const AUDIO_MONTHLY_CAP = 20;
 
-export async function isUserPremium(userId: string): Promise<boolean> {
+export const isUserPremium = cache(async (userId: string): Promise<boolean> => {
   const supabase = createServiceClient();
 
   const [{ data: userRow }, subResult] = await Promise.all([
@@ -58,7 +59,7 @@ export async function isUserPremium(userId: string): Promise<boolean> {
   }
 
   return false;
-}
+});
 
 export async function getMonthlyAudioCount(userId: string): Promise<number> {
   const supabase = createServiceClient();

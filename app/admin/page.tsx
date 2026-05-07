@@ -6,7 +6,7 @@ import { PlanSelect } from "@/components/admin/PlanSelect";
 import { PricingForm } from "@/components/admin/PricingForm";
 import { FlagsPanel } from "@/components/admin/FlagsPanel";
 
-export const metadata: Metadata = { title: "Admin — WhatMatters" };
+export const metadata: Metadata = { title: "Admin" };
 
 const TABS = [
   { key: "overview",  label: "Overview" },
@@ -261,7 +261,7 @@ export default async function AdminPage(props: {
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">WhatMatters Admin</h1>
+          <h1 className="text-xl font-semibold tracking-tight">upto. Admin</h1>
         </div>
 
         {/* Tab nav */}

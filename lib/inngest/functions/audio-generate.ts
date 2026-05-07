@@ -120,7 +120,7 @@ export const audioGenerate = inngest.createFunction(
 <html>
 <body style="margin:0;padding:0;background:#fff;font-family:system-ui,-apple-system,sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:40px 24px;">
-    <p style="font-size:13px;color:#888;margin:0 0 24px;">WhatMatters</p>
+    <p style="font-size:13px;color:#888;margin:0 0 24px;">upto.</p>
     <h2 style="font-size:18px;font-weight:600;margin:0 0 8px;color:#111;">🎧 Your Audio Brief is ready</h2>
     <p style="font-size:14px;color:#555;margin:0 0 24px;line-height:1.5;">${subject}</p>
     <a href="${listenUrl}"

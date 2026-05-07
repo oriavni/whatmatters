@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/get-user";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -28,8 +28,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 };
 
 export default async function ArchivePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
   const serviceSupabase = createServiceClient();

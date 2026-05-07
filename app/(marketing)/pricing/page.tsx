@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
-import { buttonVariants } from "@/lib/button-variants";
-import { cn } from "@/lib/utils";
 import { getPricingConfig } from "@/lib/pricing";
+import { createClient } from "@/lib/supabase/server";
+import { isUserPremium } from "@/lib/audio/premium";
+import { PricingCard } from "@/components/marketing/PricingCard";
 
-export const metadata: Metadata = { title: "Pricing — WhatMatters" };
+export const metadata: Metadata = { title: "Pricing" };
 export const dynamic = "force-dynamic";
 
-const FEATURES = [
-  "Your own inbound email address for newsletters",
+/** Features included in every plan. */
+const FREE_FEATURES = [
+  "Your own inbound address for newsletters",
   "Unlimited newsletter and RSS sources",
-  "Daily or weekly digest — your schedule, your time",
+  "Daily or weekly digest — your schedule",
   "AI deduplication across all your sources",
-  "Reply commands — ignore, save, get more on any topic",
+  "Reply commands — ignore, save, get more",
   "Archive of all past digests",
   "No ads. No tracking. No noise.",
 ];
@@ -41,11 +37,27 @@ const FAQ = [
 
 export default async function PricingPage() {
   const pricing = await getPricingConfig();
-  const displayPrice = pricing.deal_active ? pricing.deal_price_monthly : pricing.price_monthly;
 
-  /** Features shown in the Pro card. */
-  const PRO_FEATURES = [
-    "Everything in the free plan",
+  // Resolve current user's plan state (best-effort — never throws)
+  let isPremium = false;
+  let isLoggedIn = false;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      isLoggedIn = true;
+      isPremium = await isUserPremium(user.id).catch(() => false);
+    }
+  } catch {
+    // Unauthenticated or Supabase unavailable — show default CTAs
+  }
+
+  const displayPrice = pricing.deal_active
+    ? pricing.deal_price_monthly
+    : pricing.price_monthly;
+
+  const proFeatures = [
+    "Everything in the base plan",
     pricing.pro_description,
     `${pricing.pro_audio_limit} Audio Briefs per month`,
     "Priority support",
@@ -56,7 +68,9 @@ export default async function PricingPage() {
 
       {/* Header */}
       <section className="py-20 text-center space-y-4">
-        <h1 className="text-4xl font-semibold tracking-tight">Simple, honest pricing</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          Simple, honest pricing
+        </h1>
         <p className="text-muted-foreground text-lg max-w-md mx-auto">
           {pricing.pro_visible
             ? "Two plans. No hidden fees. Start free, no card required."
@@ -64,161 +78,94 @@ export default async function PricingPage() {
         </p>
       </section>
 
-      {/* Pricing card(s) */}
+      {/* Cards */}
       <section className="flex justify-center pb-20">
         {pricing.pro_visible ? (
-          /* ── Two-column layout when Pro is enabled ── */
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
 
-            {/* Free / Basic card */}
-            <Card className="flex flex-col">
-              <CardHeader className="pb-2 space-y-3">
-                {pricing.deal_active && (
-                  <div className="space-y-1">
-                    <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
-                      {pricing.deal_label}
-                    </Badge>
-                    {pricing.deal_slots_remaining > 0 && (
-                      <p className="text-xs text-muted-foreground pl-1">
-                        {pricing.deal_slots_remaining} of {pricing.deal_slots_total} spots remaining
-                      </p>
-                    )}
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Free</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-4xl font-semibold">${displayPrice}</span>
-                    <span className="text-muted-foreground mb-1">/month</span>
-                  </div>
-                  {pricing.deal_active && (
-                    <p className="text-xs text-muted-foreground">
-                      Regular price: <span className="line-through">${pricing.price_monthly}/month</span>
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {pricing.trial_days}-day free trial · cancel anytime
-                  </p>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 gap-6 pt-2">
-                <ul className="space-y-2.5 flex-1">
-                  {FEATURES.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm">
-                      <span className="shrink-0 mt-0.5 text-foreground">✓</span>
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="space-y-2">
-                  <Link
-                    href="/signup"
-                    className={cn(buttonVariants({ size: "default" }), "w-full text-center")}
-                  >
-                    Start {pricing.trial_days}-day free trial
-                  </Link>
-                  <p className="text-xs text-center text-muted-foreground">
-                    No credit card required.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* ── Base plan card ── */}
+            <PricingCard
+              planName="Free"
+              price={`$${displayPrice}`}
+              period="/month"
+              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
+              badge={pricing.deal_active ? pricing.deal_label : undefined}
+              strikeThroughPrice={
+                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
+              }
+              features={FREE_FEATURES}
+              cta={
+                isLoggedIn && !isPremium ? (
+                  <Button variant="outline" className="w-full" disabled>
+                    Current plan
+                  </Button>
+                ) : (
+                  <Button asChild className="w-full">
+                    <Link href="/signup">
+                      Start {pricing.trial_days}-day free trial
+                    </Link>
+                  </Button>
+                )
+              }
+              finePrint="No credit card required."
+            />
 
-            {/* Pro card */}
-            <Card className="flex flex-col border-foreground/20 shadow-md" id="pro">
-              <CardHeader className="pb-2 space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-muted-foreground">{pricing.pro_label}</p>
-                    <Badge variant="outline" className="rounded-full px-2 py-0.5 text-xs">
-                      New
-                    </Badge>
-                  </div>
-                  <div className="flex items-end gap-1">
-                    <span className="text-4xl font-semibold">${pricing.pro_price_monthly}</span>
-                    <span className="text-muted-foreground mb-1">/month</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Includes everything in the free plan
-                  </p>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1 gap-6 pt-2">
-                <ul className="space-y-2.5 flex-1">
-                  {PRO_FEATURES.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm">
-                      <span className="shrink-0 mt-0.5 text-foreground">✓</span>
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="space-y-2">
-                  <Link
-                    href="/signup?plan=pro"
-                    className="inline-flex items-center justify-center w-full rounded-md bg-foreground text-background text-sm font-medium h-9 px-4"
-                  >
-                    Upgrade to {pricing.pro_label}
-                  </Link>
-                  <p className="text-xs text-center text-muted-foreground">
-                    No credit card required to start.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* ── Pro card ── */}
+            <PricingCard
+              planName={pricing.pro_label}
+              price={`$${pricing.pro_price_monthly}`}
+              period="/month"
+              subtitle="Includes everything in the base plan"
+              badge="New"
+              badgeVariant="outline"
+              features={proFeatures}
+              highlighted
+              cta={
+                isPremium ? (
+                  <Button variant="outline" className="w-full" disabled>
+                    Current plan
+                  </Button>
+                ) : (
+                  <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
+                    <Link href={isLoggedIn ? "/app/account#billing" : "/signup?plan=pro"}>
+                      Upgrade to {pricing.pro_label}
+                    </Link>
+                  </Button>
+                )
+              }
+              finePrint={isPremium ? "You're on Pro." : "No credit card required to start."}
+            />
 
           </div>
         ) : (
-          /* ── Single card layout (default) ── */
-          <div className="w-full max-w-md rounded-xl border bg-card p-8 space-y-8">
-
-            {pricing.deal_active && (
-              <div className="space-y-1">
-                <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
-                  {pricing.deal_label}
-                </Badge>
-                {pricing.deal_slots_remaining > 0 && (
-                  <p className="text-xs text-muted-foreground pl-1">
-                    {pricing.deal_slots_remaining} of {pricing.deal_slots_total} spots remaining
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Price */}
-            <div className="space-y-1">
-              <div className="flex items-end gap-1">
-                <span className="text-5xl font-semibold">${displayPrice}</span>
-                <span className="text-muted-foreground mb-1.5">/month</span>
-              </div>
-              {pricing.deal_active && (
-                <p className="text-sm text-muted-foreground">
-                  Regular price: <span className="line-through">${pricing.price_monthly}/month</span>
-                </p>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {pricing.trial_days}-day free trial · cancel anytime
-              </p>
-            </div>
-
-            {/* Features */}
-            <ul className="space-y-3">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-3 text-sm">
-                  <span className="shrink-0 mt-0.5 text-foreground">✓</span>
-                  <span className="text-muted-foreground">{f}</span>
-                </li>
-              ))}
-            </ul>
-
-            {/* CTA */}
-            <div className="space-y-3">
-              <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full text-center")}>
-                Start {pricing.trial_days}-day free trial
-              </Link>
-              <p className="text-xs text-center text-muted-foreground">
-                No credit card required to start.
-              </p>
-            </div>
+          /* ── Single card layout ── */
+          <div className="w-full max-w-md">
+            <PricingCard
+              planName="upto."
+              price={`$${displayPrice}`}
+              period="/month"
+              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
+              badge={pricing.deal_active ? pricing.deal_label : undefined}
+              strikeThroughPrice={
+                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
+              }
+              features={FREE_FEATURES}
+              cta={
+                isLoggedIn ? (
+                  <Button variant="outline" className="w-full" disabled>
+                    Current plan
+                  </Button>
+                ) : (
+                  <Button asChild size="lg" className="w-full">
+                    <Link href="/signup">
+                      Start {pricing.trial_days}-day free trial
+                    </Link>
+                  </Button>
+                )
+              }
+              finePrint="No credit card required to start."
+              large
+            />
           </div>
         )}
       </section>
@@ -239,3 +186,4 @@ export default async function PricingPage() {
     </div>
   );
 }
+

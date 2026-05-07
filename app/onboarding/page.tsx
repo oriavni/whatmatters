@@ -7,7 +7,7 @@ import { OnboardingActions } from "@/components/onboarding/OnboardingActions";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Get started — WhatMatters" };
+export const metadata: Metadata = { title: "Get started" };
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -32,7 +32,7 @@ export default async function OnboardingPage() {
 
         {/* Header */}
         <div className="text-center space-y-1">
-          <h1 className="text-2xl font-semibold">Welcome to WhatMatters</h1>
+          <h1 className="text-2xl font-semibold">Welcome to upto.</h1>
           <p className="text-sm text-muted-foreground">
             Add at least one source and you&apos;re ready to generate your first Brief.
           </p>

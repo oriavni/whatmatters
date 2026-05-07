@@ -5,7 +5,7 @@
  * Free users see a paywall.
  */
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/get-user";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isUserPremium, AUDIO_MONTHLY_CAP, getMonthlyAudioCount } from "@/lib/audio/premium";
 import Link from "next/link";
@@ -16,8 +16,7 @@ import type { DigestItem, AudioRow } from "@/components/audio/AudioBriefsList";
 export const metadata: Metadata = { title: "Audio Briefs" };
 
 export default async function AudioBriefsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const premium = await isUserPremium(user.id);

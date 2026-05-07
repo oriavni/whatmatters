@@ -226,7 +226,7 @@ export function AddSourceDialog({ onAdded, children }: AddSourceDialogProps) {
                   <div>
                     <p className="text-sm font-medium">Add as RSS feed</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      WhatMatters fetches new posts automatically.
+                      upto fetches new posts automatically.
                     </p>
                   </div>
                 </button>
