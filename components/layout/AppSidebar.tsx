@@ -26,6 +26,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { UserNav } from "./UserNav"
 import { Logo } from "@/components/brand/Logo"
@@ -46,6 +47,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ userEmail, isPremium, ...props }: AppSidebarProps) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -77,7 +79,7 @@ export function AppSidebar({ userEmail, isPremium, ...props }: AppSidebarProps) 
                       isActive={isActive}
                       tooltip={locked ? `${item.label} — Pro` : item.label}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} onClick={() => isMobile && setOpenMobile(false)}>
                         <Icon />
                         <span>{item.label}</span>
                         {locked && (
@@ -98,7 +100,7 @@ export function AppSidebar({ userEmail, isPremium, ...props }: AppSidebarProps) 
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Upgrade to Pro">
-                    <Link href="/pricing">
+                    <Link href="/pricing" onClick={() => isMobile && setOpenMobile(false)}>
                       <Zap />
                       <span>Upgrade to Pro</span>
                     </Link>

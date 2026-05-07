@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getPricingConfig } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
-import { isUserPremium } from "@/lib/audio/premium";
+import { isAudioPremium } from "@/lib/audio/premium";
 import { PricingCard } from "@/components/marketing/PricingCard";
 
 export const metadata: Metadata = { title: "Pricing" };
@@ -46,7 +46,7 @@ export default async function PricingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       isLoggedIn = true;
-      isPremium = await isUserPremium(user.id).catch(() => false);
+      isPremium = await isAudioPremium(user.id).catch(() => false);
     }
   } catch {
     // Unauthenticated or Supabase unavailable — show default CTAs
@@ -95,7 +95,7 @@ export default async function PricingPage() {
               }
               features={FREE_FEATURES}
               cta={
-                isLoggedIn && !isPremium ? (
+                isLoggedIn ? (
                   <Button variant="outline" className="w-full" disabled>
                     Current plan
                   </Button>

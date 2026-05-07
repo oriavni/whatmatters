@@ -12,6 +12,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// BACKLOG: pricing_config.trial_days currently controls marketing copy only.
+// This constant is the actual enforcement value and is NOT wired to pricing_config.
+// Needs a separate fix before launch to keep them in sync.
 export const TRIAL_DAYS = 3;
 export const TRIAL_DIGEST_CAP = 3;
 

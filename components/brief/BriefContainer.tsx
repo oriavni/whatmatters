@@ -317,19 +317,18 @@ export function BriefContainer({
     const isFirstTimeUser = lastDigestAt === null;
     return (
       <div className="max-w-2xl mx-auto pb-12">
-        <div className="mb-8">
-          <PageHeader title="Your Brief">
-            <div className="flex items-center gap-2 shrink-0">
-              <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              {/* Always show ReadNow; first-time users see it disabled with tooltip */}
-              <ReadNowButton
-                onGenerate={handleGenerate}
-                disabled={isFirstTimeUser || !hasSources}
-                disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
-                newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
-              />
-            </div>
-          </PageHeader>
+        <div className="space-y-3 mb-8">
+          <PageHeader title="Your Brief" />
+          <div className="flex items-center gap-2">
+            <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
+            {/* Always show ReadNow; first-time users see it disabled with tooltip */}
+            <ReadNowButton
+              onGenerate={handleGenerate}
+              disabled={isFirstTimeUser || !hasSources}
+              disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
+              newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
+            />
+          </div>
         </div>
         <Alert variant="destructive">
           <AlertDescription>{generationError}</AlertDescription>
@@ -379,19 +378,18 @@ export function BriefContainer({
 
     return (
       <div className="max-w-2xl mx-auto pb-12">
-        <div className="mb-8">
-          <PageHeader title="Your Brief">
-            <div className="flex items-center gap-2 shrink-0">
-              <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
-              {/* Always show ReadNow; first-time users see it greyed out */}
-              <ReadNowButton
-                onGenerate={handleGenerate}
-                disabled={isFirstTimeUser || !hasSources}
-                disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
-                newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
-              />
-            </div>
-          </PageHeader>
+        <div className="space-y-3 mb-8">
+          <PageHeader title="Your Brief" />
+          <div className="flex items-center gap-2">
+            <GenerateAudioButton isPremium={isPremiumInitial} hasDigest={false} hasSources={hasSources} />
+            {/* Always show ReadNow; first-time users see it greyed out */}
+            <ReadNowButton
+              onGenerate={handleGenerate}
+              disabled={isFirstTimeUser || !hasSources}
+              disabledTooltip={isFirstTimeUser ? "Generate your first Brief below" : "Add at least one source to generate your Brief"}
+              newCount={(!isFirstTimeUser && hasSources) ? newCount : undefined}
+            />
+          </div>
         </div>
         {isFirstTimeUser && (
           <BriefEmptyState
@@ -414,9 +412,9 @@ export function BriefContainer({
 
   return (
     <div className="max-w-2xl mx-auto pb-12 animate-in fade-in-0 duration-500">
-      <div className="flex items-start justify-between gap-4 mb-8">
+      <div className="space-y-3 mb-8">
         <BriefHeader periodLabel={digest.periodLabel} subject={digest.subject} />
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
           <GenerateAudioButton
             digestId={digest.id}
             isPremium={isPremiumInitial}

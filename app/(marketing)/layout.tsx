@@ -26,11 +26,11 @@ export default function MarketingLayout({
           <Link href="/" aria-label="upto. home">
             <Logo size="md" />
           </Link>
-          <nav className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="/#how-it-works" className="hover:text-foreground transition-colors">
+          <nav className="flex items-center gap-4 sm:gap-6 text-sm text-muted-foreground">
+            <a href="/#how-it-works" className="hidden sm:block hover:text-foreground transition-colors">
               How it works
             </a>
-            <a href="/#pricing" className="hover:text-foreground transition-colors">
+            <a href="/#pricing" className="hidden sm:block hover:text-foreground transition-colors">
               Pricing
             </a>
             <Link href="/login" className="hover:text-foreground transition-colors">
