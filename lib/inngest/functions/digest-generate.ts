@@ -258,6 +258,21 @@ export const digestGenerate = inngest.createFunction(
       data: { digest_id: digestId, user_id },
     });
 
+    // Record success in job_logs so the admin panel shows completed runs,
+    // not just failures.
+    await writeJobLog({
+      jobName: "digest-generate",
+      status: "done",
+      userId: user_id,
+      metadata: {
+        digest_id: digestId,
+        cluster_count: activeClusterIds.length,
+        trigger,
+        tokens_in:  clusterResult.tokensIn  + synthResult.tokensIn,
+        tokens_out: clusterResult.tokensOut + synthResult.tokensOut,
+      },
+    });
+
     return { status: "ok", digest_id: digestId, cluster_count: activeClusterIds.length };
   }
 );
