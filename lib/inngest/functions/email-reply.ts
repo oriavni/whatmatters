@@ -163,11 +163,25 @@ function confirmationText(
         subject: "Brief: generating now",
         text: `Your fresh Brief is being generated. Check your inbox in a few minutes.`,
       };
-    case "mute_source":
+    case "mute_source": {
+      const muteExtras = extras as { sourceName?: string | null; muteNeedsSourceName?: boolean; sourceNotFound?: boolean };
+      if (muteExtras.muteNeedsSourceName) {
+        return {
+          subject: "Brief: which source?",
+          text: `Sure, I can mute a source. Which one did you have in mind? Reply with something like "mute TechCrunch" and I'll take care of it.`,
+        };
+      }
+      if (muteExtras.sourceNotFound) {
+        return {
+          subject: "Brief: source not found",
+          text: `I couldn't find "${muteExtras.sourceName ?? parsed.source}" in your sources. Check the name and try again, or visit ${APP_URL}/app to manage your sources.`,
+        };
+      }
       return {
         subject: "Brief: source muted",
-        text: `Done — "${extras.sourceName ?? parsed.source}" has been muted and won't appear in future digests.`,
+        text: `Done — "${muteExtras.sourceName ?? parsed.source}" has been muted and won't appear in future digests.`,
       };
+    }
     case "audio_brief":
       if ((extras as { audioPremiumBlocked?: boolean }).audioPremiumBlocked) {
         const reason = (extras as { audioBlockReason?: string }).audioBlockReason;
@@ -186,16 +200,15 @@ function confirmationText(
       return {
         subject: "Brief: quick question",
         text: [
-          "I wasn't sure what you meant. Here are the things you can reply with:",
+          "I wasn't quite sure what you meant. Here are some things you can ask:",
           "",
-          "  • \"more [topic]\" — get more on a topic",
-          "  • \"save [topic]\" — save a story",
-          "  • \"ignore [topic]\" — see less of a topic",
-          "  • \"link to [topic]\" — get the original article link",
-          "  • \"mute [source name]\" — stop seeing content from a source",
+          "  • \"more AI\" — get more on a topic",
+          "  • \"less crypto\" or \"ignore politics\" — see less of a topic",
+          "  • \"link to the OpenAI story\" — get the original article",
+          "  • \"mute TechCrunch\" — stop seeing content from a source",
           "  • \"listen\" or \"audio\" — generate an audio version of this Brief",
           "  • \"read now\" — generate a fresh digest right now",
-          "  • \"daily\" / \"weekly on monday\" — change your delivery schedule",
+          "  • \"daily\" or \"weekly on monday at 8am\" — change your delivery schedule",
         ].join("\n"),
       };
   }
@@ -435,24 +448,29 @@ export const emailReplyParse = inngest.createFunction(
         }
 
         case "mute_source": {
-          if (parsed.source) {
-            const { data: sourceRow } = await supabase
-              .from("sources")
-              .select("id, name")
-              .eq("user_id", userId)
-              .ilike("name", `%${parsed.source}%`)
-              .limit(1)
-              .maybeSingle();
-
-            if (sourceRow) {
-              await supabase
-                .from("sources")
-                .update({ status: "paused" })
-                .eq("id", sourceRow.id);
-              return { sourceName: sourceRow.name };
-            }
+          // source is null when user said something generic like "mute this source"
+          // without naming it — ask for clarification
+          if (!parsed.source) {
+            return { muteNeedsSourceName: true };
           }
-          return { sourceName: parsed.source };
+
+          const { data: sourceRow } = await supabase
+            .from("sources")
+            .select("id, name")
+            .eq("user_id", userId)
+            .ilike("name", `%${parsed.source}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (sourceRow) {
+            await supabase
+              .from("sources")
+              .update({ status: "paused" })
+              .eq("id", sourceRow.id);
+            return { sourceName: sourceRow.name };
+          }
+          // Named source not found in DB — confirm with user's wording anyway
+          return { sourceName: parsed.source, sourceNotFound: true };
         }
 
         case "audio_brief": {

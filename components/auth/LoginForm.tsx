@@ -50,10 +50,15 @@ export function LoginForm() {
     setLoadingGoogle(true);
 
     const supabase = createClient();
+    // Use the canonical app URL so preview deployments never inject their
+    // origin into the OAuth redirect chain. Supabase validates redirectTo
+    // against its Redirect URLs allowlist — a preview URL would fail that
+    // check and fall back to the Site URL (landing page).
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${appUrl}/api/auth/callback`,
       },
     });
 

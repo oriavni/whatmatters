@@ -35,12 +35,15 @@ export function SignupForm() {
     setLoadingEmail(true);
 
     const supabase = createClient();
+    // Use canonical app URL — same reason as Google OAuth: prevents preview
+    // deployment origins from leaking into the Supabase redirect allowlist check.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         // After email confirmation the user lands on the callback, which redirects to /app/brief
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        emailRedirectTo: `${appUrl}/api/auth/callback`,
       },
     });
 
@@ -74,10 +77,11 @@ export function SignupForm() {
     setLoadingGoogle(true);
 
     const supabase = createClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${appUrl}/api/auth/callback`,
       },
     });
 

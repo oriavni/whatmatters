@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 p-8 border rounded-xl bg-card shadow-sm">
+      <div className="w-full max-w-sm space-y-6 p-8 border rounded-xl bg-card">
         <div>
           <h1 className="text-lg font-semibold">upto. Admin</h1>
           <p className="text-sm text-muted-foreground mt-1">Enter the admin password to continue.</p>

@@ -37,7 +37,7 @@ export function PricingCard({
   large = false,
 }: PricingCardProps) {
   return (
-    <Card className={cn("flex flex-col", highlighted && "border-foreground/20 shadow-md")}>
+    <Card className={cn("flex flex-col", highlighted && "border-foreground/30")}>
 
       {/* ① Plan name + optional badge */}
       <CardHeader className="pb-2 space-y-3">
