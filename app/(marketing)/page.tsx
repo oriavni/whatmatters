@@ -62,7 +62,7 @@ export default async function LandingPage() {
         <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
           Private intelligence for your inbox
         </Badge>
-        <h1 className="text-5xl font-semibold tracking-tight leading-tight max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight max-w-3xl mx-auto">
           Everything you should read.
           <br />
           <span className="text-muted-foreground">
@@ -74,13 +74,13 @@ export default async function LandingPage() {
           everything, compress the overlap, and deliver a single editorial
           briefing — every morning.
         </p>
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <Link href="/signup" className={cn(buttonVariants({ size: "lg" }))}>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}>
             Start your free Brief
           </Link>
           <a
             href="#how-it-works"
-            className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto")}
           >
             See how it works
           </a>

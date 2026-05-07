@@ -140,7 +140,7 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
         {/* Inbound address */}
         <Section title="Inbound address">
           <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
-            <code className="text-sm flex-1 font-mono">{inboundAddress}</code>
+            <code className="text-sm flex-1 font-mono truncate min-w-0">{inboundAddress}</code>
             <CopyButton text={inboundAddress} />
           </div>
         </Section>
@@ -205,8 +205,8 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
           {sources.length === 0 ? (
             <p className="text-sm text-muted-foreground">No sources</p>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     {["Name", "Type", "Status", "Last fetched", "Error"].map((h) => (
@@ -243,8 +243,8 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
           {rawItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">No emails received</p>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     {["Subject", "Sender", "Received", "Processed", "Attributed"].map((h) => (
@@ -277,8 +277,8 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
           {digests.length === 0 ? (
             <p className="text-sm text-muted-foreground">No digests</p>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     {["Subject", "Status", "Duration", "Cost", "Sent", "Error"].map((h) => (
@@ -324,8 +324,8 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
           {replies.length === 0 ? (
             <p className="text-sm text-muted-foreground">No replies</p>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     {["Intent", "Action", "Via", "Time"].map((h) => (
@@ -364,8 +364,8 @@ export default async function UserDetailPage(props: { params: Promise<{ id: stri
           {audioRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No audio briefs generated</p>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border overflow-x-auto">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     {["Created", "Status", "Size", "Cost", "Error"].map((h) => (
