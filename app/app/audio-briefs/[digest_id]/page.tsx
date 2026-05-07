@@ -5,7 +5,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { isUserPremium } from "@/lib/audio/premium";
+import { isAudioPremium } from "@/lib/audio/premium";
 import { getAudioSignedUrl } from "@/lib/audio/generate";
 import { AudioBriefPlayer } from "@/components/audio/AudioBriefPlayer";
 import Link from "next/link";
@@ -24,7 +24,7 @@ export default async function AudioBriefDetailPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const premium = await isUserPremium(user.id);
+  const premium = await isAudioPremium(user.id);
   if (!premium) redirect("/app/audio-briefs");
 
   const serviceSupabase = createServiceClient();

@@ -16,6 +16,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { TRIAL_DAYS, TRIAL_DIGEST_CAP } from "@/lib/digest/trial";
+import { getPricingConfig } from "@/lib/pricing";
 
 /**
  * Convert a local clock hour (from digest_time "HH:MM") to the equivalent
@@ -182,8 +183,9 @@ export const digestSchedule = inngest.createFunction(
       const supabase = createServiceClient();
       const userIds = usersToFire.map((u) => u.user_id);
 
-      // Load premium status + account age for all candidates in one shot
-      const [{ data: userRows }, { data: subRows }, { data: digestRows }] =
+      // Load premium status + account age for all candidates in one shot.
+      // Also fetch pricing config so trial_days enforcement matches admin config.
+      const [{ data: userRows }, { data: subRows }, { data: digestRows }, pricing] =
         await Promise.all([
           supabase
             .from("users")
@@ -200,6 +202,7 @@ export const digestSchedule = inngest.createFunction(
             .select("user_id")
             .in("user_id", userIds)
             .not("status", "eq", "failed"),
+          getPricingConfig().catch(() => null),
         ]);
 
       type UserRow = { id: string; is_premium_override?: boolean; created_at?: string };
@@ -220,7 +223,9 @@ export const digestSchedule = inngest.createFunction(
       }
 
       const createdAtMap = new Map(rows.map((u) => [u.id, u.created_at ?? ""]));
-      const trialWindowMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      // Use live pricing_config.trial_days; fall back to constant if DB unavailable.
+      const trialDays = pricing?.trial_days ?? TRIAL_DAYS;
+      const trialWindowMs = trialDays * 24 * 60 * 60 * 1000;
       const nowMs = Date.now();
 
       return usersToFire.filter(({ user_id }) => {
