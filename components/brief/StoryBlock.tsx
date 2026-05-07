@@ -6,12 +6,14 @@ import {
   CardAction,
   CardContent,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { SourceAttribution } from "./SourceAttribution";
 import { StoryBlockActions } from "./StoryBlockActions";
 import type { BriefCluster } from "./types";
 
 interface StoryBlockProps {
   cluster: BriefCluster;
+  /** First two full-block clusters render at a larger title size */
   isLead?: boolean;
   digestId: string;
   initialLiked?: boolean;
@@ -27,17 +29,23 @@ export function StoryBlock({
   initialSaved = false,
   initialIgnoreLevel = 0,
 }: StoryBlockProps) {
+  const hasSources = cluster.sources.length > 0;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className={isLead ? "text-lg" : undefined}>
+        {/* shadcn CardTitle — no default font-size, set it per context */}
+        <CardTitle className={isLead ? "text-lg" : "text-base"}>
           {cluster.topic}
         </CardTitle>
+
         {cluster.summary && (
-          <CardDescription className="text-sm leading-relaxed">
+          <CardDescription className="leading-relaxed">
             {cluster.summary}
           </CardDescription>
         )}
+
+        {/* CardAction slots into col 2 of the CardHeader grid, spanning both rows */}
         <CardAction>
           <StoryBlockActions
             digestId={digestId}
@@ -51,8 +59,9 @@ export function StoryBlock({
         </CardAction>
       </CardHeader>
 
-      {cluster.sources.length > 0 && (
-        <CardContent className="pt-0">
+      {hasSources && (
+        <CardContent className="flex flex-col gap-4 pt-0">
+          <Separator />
           <SourceAttribution sources={cluster.sources} />
         </CardContent>
       )}

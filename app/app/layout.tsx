@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { isUserPremium } from "@/lib/audio/premium";
+import { getUser } from "@/lib/supabase/get-user";
+import { isAudioPremium } from "@/lib/audio/premium";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppClientLayout } from "@/components/layout/AppClientLayout";
@@ -13,10 +13,7 @@ export default async function AppLayout({
 }) {
   // Guard: proxy.ts handles the redirect for unauthenticated users, but we
   // also check here so server components always have a confirmed user object.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) {
     redirect("/login");
@@ -24,7 +21,7 @@ export default async function AppLayout({
 
   // Fetch premium status for sidebar pricing clarity.
   // Non-blocking: defaults to false on error so layout never breaks.
-  const isPremium = await isUserPremium(user.id).catch(() => false);
+  const isPremium = await isAudioPremium(user.id).catch(() => false);
 
   return (
     <SidebarProvider>

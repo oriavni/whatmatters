@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getUser } from "@/lib/supabase/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { config } from "@/lib/config";
@@ -8,12 +9,10 @@ import { BriefContainer } from "@/components/brief/BriefContainer";
 export const metadata: Metadata = { title: "Brief" };
 
 export default async function BriefPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
+  const supabase = await createClient();
   const service = createServiceClient();
 
   const [profileResult, sourcesResult, subResult] = await Promise.all([

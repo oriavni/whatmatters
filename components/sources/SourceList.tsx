@@ -291,17 +291,15 @@ function SourceRow({
         )}
 
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                disabled={busy}
-                aria-label="Source options"
-              />
-            }
-          >
-            <MoreHorizontal className="size-4" />
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              disabled={busy}
+              aria-label="Source options"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleRetry}>

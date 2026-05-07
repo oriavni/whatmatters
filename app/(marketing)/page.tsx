@@ -1,5 +1,7 @@
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,9 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getPricingConfig } from "@/lib/pricing";
+import { PricingCard } from "@/components/marketing/PricingCard";
 
 export const dynamic = "force-dynamic"; // pricing data must always be fresh
 
@@ -22,7 +24,7 @@ const steps = [
   {
     step: "02",
     title: "We read everything",
-    body: "WhatMatters reads every item, detects overlapping topics, and compresses repetition — without losing breadth.",
+    body: "upto reads every item, detects overlapping topics, and compresses repetition — without losing breadth.",
   },
   {
     step: "03",
@@ -31,7 +33,7 @@ const steps = [
   },
 ];
 
-const FEATURES = [
+const FREE_FEATURES = [
   "Your own inbound email address",
   "Unlimited newsletter sources",
   "Daily or weekly digest, on your schedule",
@@ -41,6 +43,18 @@ const FEATURES = [
 
 export default async function LandingPage() {
   const pricing = await getPricingConfig();
+
+  const displayPrice = pricing.deal_active
+    ? pricing.deal_price_monthly
+    : pricing.price_monthly;
+
+  const proFeatures = [
+    "Everything in the base plan",
+    pricing.pro_description,
+    `${pricing.pro_audio_limit} Audio Briefs per month`,
+    "Priority support",
+  ];
+
   return (
     <div className="max-w-4xl mx-auto px-6">
       {/* Hero */}
@@ -48,7 +62,7 @@ export default async function LandingPage() {
         <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
           Private intelligence for your inbox
         </Badge>
-        <h1 className="text-5xl font-semibold tracking-tight leading-tight max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-tight max-w-3xl mx-auto">
           Everything you should read.
           <br />
           <span className="text-muted-foreground">
@@ -56,20 +70,20 @@ export default async function LandingPage() {
           </span>
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-          Route your newsletters and RSS feeds to WhatMatters. We read
+          Route your newsletters and RSS feeds to upto. We read
           everything, compress the overlap, and deliver a single editorial
           briefing — every morning.
         </p>
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <Link href="/signup" className={cn(buttonVariants({ size: "lg" }))}>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}>
             Start your free Brief
           </Link>
-          <Link
+          <a
             href="#how-it-works"
-            className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto")}
           >
             See how it works
-          </Link>
+          </a>
         </div>
       </section>
 
@@ -111,122 +125,68 @@ export default async function LandingPage() {
         {pricing.pro_visible ? (
           /* ── Two-column: Free + Pro ── */
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <PricingCard
+              planName="Free"
+              price={`$${displayPrice}`}
+              period="/month"
+              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
+              badge={pricing.deal_active ? pricing.deal_label : undefined}
+              strikeThroughPrice={
+                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
+              }
+              features={FREE_FEATURES}
+              cta={
+                <Button asChild className="w-full">
+                  <Link href="/signup">
+                    Start {pricing.trial_days}-day free trial
+                  </Link>
+                </Button>
+              }
+              finePrint="No credit card required."
+            />
 
-            {/* Free card */}
-            <div className="rounded-xl border bg-card p-6 flex flex-col gap-5">
-              <div>
-                {pricing.deal_active && (
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium mb-2">
-                    {pricing.deal_label}
-                  </Badge>
-                )}
-                <p className="text-sm font-medium text-muted-foreground">Free</p>
-                <div className="flex items-end gap-1 mt-1">
-                  <span className="text-4xl font-semibold">
-                    ${pricing.deal_active ? pricing.deal_price_monthly : pricing.price_monthly}
-                  </span>
-                  <span className="text-muted-foreground mb-1 text-sm">/month</span>
-                </div>
-                {pricing.deal_active && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Regular: <span className="line-through">${pricing.price_monthly}/month</span>
-                    {pricing.deal_slots_remaining > 0 && (
-                      <span className="ml-2">{pricing.deal_slots_remaining} spots left</span>
-                    )}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  {pricing.trial_days}-day free trial · cancel anytime
-                </p>
-              </div>
-              <ul className="space-y-2 flex-1">
-                {FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <span className="text-foreground mt-0.5 shrink-0">✓</span>
-                    <span className="text-muted-foreground">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="/signup" className={cn(buttonVariants({ size: "default" }), "w-full text-center")}>
-                Start {pricing.trial_days}-day free trial
-              </Link>
-            </div>
-
-            {/* Pro card */}
-            <div className="rounded-xl border border-foreground/20 bg-card p-6 flex flex-col gap-5 shadow-md">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-medium text-muted-foreground">{pricing.pro_label}</p>
-                  <Badge variant="outline" className="rounded-full px-2 py-0.5 text-xs">New</Badge>
-                </div>
-                <div className="flex items-end gap-1 mt-1">
-                  <span className="text-4xl font-semibold">${pricing.pro_price_monthly}</span>
-                  <span className="text-muted-foreground mb-1 text-sm">/month</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Includes everything in the free plan
-                </p>
-              </div>
-              <ul className="space-y-2 flex-1">
-                {[
-                  "Everything in the free plan",
-                  pricing.pro_description,
-                  `${pricing.pro_audio_limit} Audio Briefs per month`,
-                  "Priority support",
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <span className="text-foreground mt-0.5 shrink-0">✓</span>
-                    <span className="text-muted-foreground">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/pricing#pro"
-                className="inline-flex items-center justify-center w-full rounded-md bg-foreground text-background text-sm font-medium h-9 px-4"
-              >
-                Upgrade to {pricing.pro_label}
-              </Link>
-            </div>
-
+            <PricingCard
+              planName={pricing.pro_label}
+              price={`$${pricing.pro_price_monthly}`}
+              period="/month"
+              subtitle="Includes everything in the base plan"
+              badge="New"
+              badgeVariant="outline"
+              features={proFeatures}
+              highlighted
+              cta={
+                <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
+                  <Link href="/signup?plan=pro">
+                    Upgrade to {pricing.pro_label}
+                  </Link>
+                </Button>
+              }
+              finePrint="No credit card required to start."
+            />
           </div>
         ) : (
           /* ── Single card (default) ── */
-          <div className="max-w-sm mx-auto rounded-xl border bg-card p-8 space-y-6">
-            {pricing.deal_active && (
-              <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
-                {pricing.deal_label}
-              </Badge>
-            )}
-
-            <div className="text-center">
-              <div className="flex items-end justify-center gap-1">
-                <span className="text-4xl font-semibold">
-                  ${pricing.deal_active ? pricing.deal_price_monthly : pricing.price_monthly}
-                </span>
-                <span className="text-muted-foreground mb-1.5 text-sm">/month</span>
-              </div>
-              {pricing.deal_active && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  <span className="line-through">${pricing.price_monthly}/month</span>
-                  {pricing.deal_slots_remaining > 0 && (
-                    <span className="ml-2">{pricing.deal_slots_remaining} spots left</span>
-                  )}
-                </p>
-              )}
-            </div>
-
-            <ul className="space-y-2">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm">
-                  <span className="text-foreground mt-0.5">✓</span>
-                  <span className="text-muted-foreground">{f}</span>
-                </li>
-              ))}
-            </ul>
-
-            <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full text-center")}>
-              Start {pricing.trial_days}-day free trial
-            </Link>
+          <div className="max-w-md mx-auto">
+            <PricingCard
+              planName="upto."
+              price={`$${displayPrice}`}
+              period="/month"
+              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
+              badge={pricing.deal_active ? pricing.deal_label : undefined}
+              strikeThroughPrice={
+                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
+              }
+              features={FREE_FEATURES}
+              cta={
+                <Button asChild size="lg" className="w-full">
+                  <Link href="/signup">
+                    Start {pricing.trial_days}-day free trial
+                  </Link>
+                </Button>
+              }
+              finePrint="No credit card required to start."
+              large
+            />
           </div>
         )}
       </section>

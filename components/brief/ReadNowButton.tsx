@@ -151,8 +151,10 @@ export function ReadNowButton({
   const wrappedBtn = isDisabled ? (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<span tabIndex={0} className="cursor-not-allowed inline-flex" />}>
-          {btn}
+        <TooltipTrigger asChild>
+          <span tabIndex={0} className="cursor-not-allowed inline-flex">
+            {btn}
+          </span>
         </TooltipTrigger>
         <TooltipContent side="bottom">{effectiveTooltip}</TooltipContent>
       </Tooltip>
@@ -161,8 +163,10 @@ export function ReadNowButton({
     // Show exact count in tooltip when displaying "99+"
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>
-          {btn}
+        <TooltipTrigger asChild>
+          <span className="inline-flex">
+            {btn}
+          </span>
         </TooltipTrigger>
         <TooltipContent side="bottom">{exactCountTitle} new stories</TooltipContent>
       </Tooltip>

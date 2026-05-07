@@ -6,7 +6,7 @@ import { PlanSelect } from "@/components/admin/PlanSelect";
 import { PricingForm } from "@/components/admin/PricingForm";
 import { FlagsPanel } from "@/components/admin/FlagsPanel";
 
-export const metadata: Metadata = { title: "Admin — WhatMatters" };
+export const metadata: Metadata = { title: "Admin" };
 
 const TABS = [
   { key: "overview",  label: "Overview" },
@@ -261,16 +261,16 @@ export default async function AdminPage(props: {
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">WhatMatters Admin</h1>
+          <h1 className="text-xl font-semibold tracking-tight">upto. Admin</h1>
         </div>
 
-        {/* Tab nav */}
-        <nav className="flex gap-1 border-b">
+        {/* Tab nav — horizontally scrollable on mobile */}
+        <nav className="flex gap-1 border-b overflow-x-auto">
           {TABS.map((t) => (
             <Link
               key={t.key}
               href={`/admin?tab=${t.key}`}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.key
                   ? "border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -382,15 +382,15 @@ export default async function AdminPage(props: {
         {/* ── Digests ───────────────────────────────────────────────────────── */}
         {tab === "digests" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <MetricCard label="Sent (24h)" value={digestCounts.sent} />
               <MetricCard label="Failed (24h)" value={digestCounts.failed} />
               <MetricCard label="In-flight now" value={digestCounts.generating} />
             </div>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">Last 100 digests across all users</p>
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm min-w-max">
                   <thead className="bg-muted/50 border-b">
                     <tr>
                       {["User", "Subject", "Status", "Started", "Duration", "Cost", "Error"].map((h) => (
@@ -541,8 +541,8 @@ export default async function AdminPage(props: {
             </div>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">Last 50 audio brief generations across all users</p>
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm min-w-max">
                   <thead className="bg-muted/50 border-b">
                     <tr>
                       {["User", "Digest ID", "Status", "Size", "Cost", "Created", "Error"].map((h) => (

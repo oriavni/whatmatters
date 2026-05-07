@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" fill="none">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700&amp;display=swap');
+      text { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 72px; letter-spacing: -7.5px; }
+    </style>
+  </defs>
+  <!-- "up" black, "to" coral, "." black -->
+  <text y="68">
+    <tspan fill="#222222">up</tspan><tspan fill="#e65336">to</tspan><tspan fill="#222222">.</tspan>
+  </text>
+</svg>

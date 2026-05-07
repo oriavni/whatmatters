@@ -114,8 +114,10 @@ export function GenerateAudioButton({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger render={<span tabIndex={0} className="cursor-not-allowed inline-flex" />}>
-            {btn}
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="cursor-not-allowed inline-flex">
+              {btn}
+            </span>
           </TooltipTrigger>
           <TooltipContent side="bottom">{disabledTooltip}</TooltipContent>
         </Tooltip>

@@ -5,10 +5,11 @@
  * Free users see a paywall.
  */
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/get-user";
 import { createServiceClient } from "@/lib/supabase/service";
-import { isUserPremium, AUDIO_MONTHLY_CAP, getMonthlyAudioCount } from "@/lib/audio/premium";
+import { isAudioPremium, AUDIO_MONTHLY_CAP, getMonthlyAudioCount } from "@/lib/audio/premium";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Headphones, Lock } from "lucide-react";
 import { AudioBriefsList } from "@/components/audio/AudioBriefsList";
 import type { DigestItem, AudioRow } from "@/components/audio/AudioBriefsList";
@@ -16,11 +17,10 @@ import type { DigestItem, AudioRow } from "@/components/audio/AudioBriefsList";
 export const metadata: Metadata = { title: "Audio Briefs" };
 
 export default async function AudioBriefsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
-  const premium = await isUserPremium(user.id);
+  const premium = await isAudioPremium(user.id);
 
   if (!premium) {
     return (
@@ -35,12 +35,9 @@ export default async function AudioBriefsPage() {
           Listen to an audio version of every digest — narrated and ready in seconds.
           Available on the Pro plan.
         </p>
-        <Link
-          href="/pricing"
-          className="inline-block mt-4 px-6 py-2 rounded-md bg-foreground text-background text-sm font-medium"
-        >
-          Upgrade to Pro
-        </Link>
+        <Button asChild className="mt-4">
+          <Link href="/pricing">Upgrade to Pro</Link>
+        </Button>
       </div>
     );
   }
