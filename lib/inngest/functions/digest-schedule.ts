@@ -17,6 +17,7 @@ import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { TRIAL_DAYS, TRIAL_DIGEST_CAP } from "@/lib/digest/trial";
 import { getPricingConfig } from "@/lib/pricing";
+import { writeJobLog } from "@/lib/inngest/log";
 
 /**
  * Convert a local clock hour (from digest_time "HH:MM") to the equivalent
@@ -129,6 +130,11 @@ export const digestSchedule = inngest.createFunction(
     });
 
     if (dueUsers.length === 0) {
+      await writeJobLog({
+        jobName: "digest-schedule",
+        status: "done",
+        metadata: { fired: 0, reason: "no-users-due", utcHour: currentUtcHour, utcDow: currentDow },
+      });
       return { fired: 0, message: "No users due at this hour" };
     }
 
@@ -172,6 +178,11 @@ export const digestSchedule = inngest.createFunction(
     });
 
     if (usersToFire.length === 0) {
+      await writeJobLog({
+        jobName: "digest-schedule",
+        status: "done",
+        metadata: { fired: 0, reason: "already-have-digests", dueCount: dueUsers.length },
+      });
       return { fired: 0, message: "All due users already have digests" };
     }
 
@@ -191,11 +202,13 @@ export const digestSchedule = inngest.createFunction(
             .from("users")
             .select("id, is_premium_override, created_at" as "id")
             .in("id", userIds),
+          // Fetch active AND trialing subscriptions — both are valid paid/trial states.
+          // Previously only 'active' was fetched, silently excluding all trialing users.
           supabase
             .from("subscriptions")
-            .select("user_id, status")
+            .select("user_id, status, trial_end" as "user_id, status")
             .in("user_id", userIds)
-            .eq("status", "active"),
+            .in("status", ["active", "trialing"]),
           // Fetch digest counts for non-failed digests (needed for cap check)
           supabase
             .from("digests")
@@ -206,14 +219,29 @@ export const digestSchedule = inngest.createFunction(
         ]);
 
       type UserRow = { id: string; is_premium_override?: boolean; created_at?: string };
-      const rows = (userRows ?? []) as unknown as UserRow[];
+      type SubRow  = { user_id: string; status: string; trial_end?: string | null };
+      const rows    = (userRows ?? []) as unknown as UserRow[];
+      const subRowsTyped = (subRows ?? []) as unknown as SubRow[];
 
       const premiumOverrideSet = new Set(
         rows.filter((u) => u.is_premium_override).map((u) => u.id)
       );
-      const activeSubSet = new Set((subRows ?? []).map((s) => s.user_id as string));
-      const isPremium = (id: string) =>
-        premiumOverrideSet.has(id) || activeSubSet.has(id);
+
+      // Build a map of user_id → subscription for inline trialing check
+      const subMap = new Map(subRowsTyped.map((s) => [s.user_id, s]));
+
+      const isPremium = (id: string): boolean => {
+        if (premiumOverrideSet.has(id)) return true;
+        const sub = subMap.get(id);
+        if (!sub) return false;
+        if (sub.status === "active") return true;
+        // trialing: check trial_end > now (no trial_end = treat as in-trial)
+        if (sub.status === "trialing") {
+          if (!sub.trial_end) return true;
+          return new Date(sub.trial_end) > new Date();
+        }
+        return false;
+      };
 
       // Count non-failed digests per user (for cap check)
       const digestCountMap = new Map<string, number>();
@@ -228,21 +256,66 @@ export const digestSchedule = inngest.createFunction(
       const trialWindowMs = trialDays * 24 * 60 * 60 * 1000;
       const nowMs = Date.now();
 
-      return usersToFire.filter(({ user_id }) => {
-        if (isPremium(user_id)) return true;
+      const approved: typeof usersToFire = [];
+      const blocked: { user_id: string; reason: string }[] = [];
 
-        // Non-premium: check trial window
-        const accountAgeMs = nowMs - new Date(createdAtMap.get(user_id) ?? 0).getTime();
-        if (accountAgeMs > trialWindowMs) return false; // expired
+      for (const u of usersToFire) {
+        if (isPremium(u.user_id)) {
+          approved.push(u);
+          continue;
+        }
 
-        // Check digest cap
-        if ((digestCountMap.get(user_id) ?? 0) >= TRIAL_DIGEST_CAP) return false; // capped
+        // No subscription row or expired trial — fall back to account-age window
+        const createdAt = createdAtMap.get(u.user_id);
+        if (!createdAt) {
+          // Missing public.users row (broken signup) — fail open, let them through
+          console.warn(`[digest-schedule] no users row for ${u.user_id} — allowing as new trial`);
+          approved.push(u);
+          continue;
+        }
 
-        return true;
-      });
+        const accountAgeMs = nowMs - new Date(createdAt).getTime();
+        if (accountAgeMs > trialWindowMs) {
+          blocked.push({ user_id: u.user_id, reason: "trial_expired" });
+          continue;
+        }
+
+        if ((digestCountMap.get(u.user_id) ?? 0) >= TRIAL_DIGEST_CAP) {
+          blocked.push({ user_id: u.user_id, reason: "trial_cap_reached" });
+          continue;
+        }
+
+        approved.push(u);
+      }
+
+      // Log trial filter results for admin visibility
+      if (blocked.length > 0) {
+        await writeJobLog({
+          jobName: "digest-schedule",
+          status: "done",
+          metadata: {
+            phase: "trial-check",
+            approved: approved.length,
+            blocked: blocked.length,
+            blockedUsers: blocked,
+          },
+        });
+      }
+
+      return approved;
     });
 
     if (trialApprovedUsers.length === 0) {
+      await writeJobLog({
+        jobName: "digest-schedule",
+        status: "done",
+        metadata: {
+          fired: 0,
+          reason: "all-trial-filtered",
+          dueCount: dueUsers.length,
+          idempotencyFiltered: dueUsers.length - usersToFire.length,
+        },
+      });
       return { fired: 0, message: "All due users are outside trial limits or already have digests" };
     }
 
@@ -264,11 +337,19 @@ export const digestSchedule = inngest.createFunction(
       );
     });
 
-    return {
+    const result = {
       fired:          trialApprovedUsers.length,
       skipped:        dueUsers.length - trialApprovedUsers.length,
       trialFiltered:  usersToFire.length - trialApprovedUsers.length,
       users:          trialApprovedUsers.map((u) => u.user_id),
     };
+
+    await writeJobLog({
+      jobName: "digest-schedule",
+      status: "done",
+      metadata: { ...result, utcHour: currentUtcHour },
+    });
+
+    return result;
   }
 );
