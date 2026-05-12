@@ -9,8 +9,16 @@
  *   4. Score clusters by interest                   [deterministic]
  *   5. Synthesize top clusters (max 8)              [1 LLM call per cluster]
  *   6. Compose plain_body, set status=ready         [deterministic]
- *   7. Fire digest/send
+ *   7. Load data for email rendering                [deterministic]
+ *   8. Render HTML email                            [deterministic]
+ *   9. Send via Postmark                            [side-effect]
+ *  10. Mark digest sent                             [deterministic]
+ *
+ * NOTE: Email send is inlined (steps 7-10) rather than firing a separate
+ * digest/send event. This ensures delivery even if Inngest function sync
+ * hasn't run after a deploy.
  */
+import * as React from "react";
 import { inngest } from "@/lib/inngest/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { clusterItems } from "@/lib/digest/cluster";
@@ -18,6 +26,11 @@ import { scoreClusters } from "@/lib/digest/score";
 import { synthesizeClusters } from "@/lib/digest/synthesize";
 import { composeDigest } from "@/lib/digest/compose";
 import { writeJobLog } from "@/lib/inngest/log";
+import { renderEmail } from "@/lib/email/render";
+import { sendEmail } from "@/lib/email/postmark";
+import { DigestEmail, type DigestClusterForEmail } from "@/lib/email/templates/digest";
+import { selectFullBlockIds } from "@/lib/digest/tier";
+import { config } from "@/lib/config";
 
 interface DigestGenerateEvent {
   user_id: string;
@@ -252,10 +265,149 @@ export const digestGenerate = inngest.createFunction(
         .eq("id", digestId);
     });
 
-    // ── Step 7: Fire digest/send ──────────────────────────────────────────
-    await step.sendEvent("trigger-send", {
-      name: "digest/send",
-      data: { digest_id: digestId, user_id },
+    // ── Step 7: Load email data ───────────────────────────────────────────
+    const { clusters: clustersForEmail, userEmail } = await step.run("load-email-data", async () => {
+      const supabase = createServiceClient();
+
+      const [
+        { data: clusterRows, error: clustersError },
+        { data: userRow, error: userError },
+      ] = await Promise.all([
+        supabase
+          .from("topic_clusters")
+          .select("id, topic, summary, rank, score, raw_item_ids")
+          .eq("digest_id", digestId)
+          .order("rank", { ascending: true }),
+        supabase
+          .from("users")
+          .select("email")
+          .eq("id", user_id)
+          .single(),
+      ]);
+
+      if (clustersError) throw new Error(`load clusters: ${clustersError.message}`);
+      if (userError || !userRow?.email) throw new Error(`load user email: ${userError?.message ?? "no email"}`);
+
+      const allItemIds = (clusterRows ?? []).flatMap((c) => c.raw_item_ids as string[]);
+      const { data: items } = await supabase
+        .from("raw_items")
+        .select("id, subject, source_id, metadata")
+        .in("id", allItemIds);
+
+      const sourceIds = [...new Set((items ?? []).map((r) => r.source_id).filter(Boolean))] as string[];
+      const { data: sources } = await supabase
+        .from("sources")
+        .select("id, name, url")
+        .in("id", sourceIds);
+
+      const sourceById = new Map<string, { name: string; url: string | null }>(
+        (sources ?? []).map((s) => [s.id, { name: s.name, url: s.url ?? null }])
+      );
+      const itemById = new Map(
+        (items ?? []).map((item) => {
+          const src = item.source_id ? (sourceById.get(item.source_id) ?? null) : null;
+          return [item.id, {
+            id: item.id,
+            title: (item.subject ?? "").trim(),
+            sourceUrl: (item.metadata as { source_url?: string })?.source_url ?? null,
+            sourceName: src?.name ?? "Unknown",
+            _sourceId: item.source_id ?? null,
+          }];
+        })
+      );
+
+      const fullBlockIds = selectFullBlockIds(
+        (clusterRows ?? []).map((c) => ({ id: c.id, score: c.score }))
+      );
+
+      const clusters: DigestClusterForEmail[] = (clusterRows ?? []).map((c) => {
+        const clusterItems = (c.raw_item_ids as string[])
+          .map((id) => itemById.get(id))
+          .filter((item): item is NonNullable<ReturnType<typeof itemById.get>> => item !== undefined);
+        const seen = new Set<string>();
+        const uniqueSources: { name: string; url: string | null }[] = [];
+        for (const item of clusterItems) {
+          if (item._sourceId && !seen.has(item._sourceId)) {
+            seen.add(item._sourceId);
+            const s = sourceById.get(item._sourceId);
+            if (s) uniqueSources.push(s);
+          }
+        }
+        return {
+          id: c.id,
+          topic: c.topic,
+          summary: c.summary,
+          rank: c.rank,
+          isFullBlock: fullBlockIds.has(c.id),
+          items: clusterItems.map(({ id, title, sourceUrl, sourceName }) => ({ id, title, sourceUrl, sourceName })),
+          sources: uniqueSources,
+        };
+      });
+
+      return { clusters, userEmail: userRow.email };
+    });
+
+    // ── Step 8: Render email HTML ─────────────────────────────────────────
+    const { html, text } = await step.run("render-email", async () => {
+      const { data: digestRow } = await createServiceClient()
+        .from("digests")
+        .select("subject, period_end, plain_body")
+        .eq("id", digestId)
+        .single();
+
+      const periodLabel = new Date(digestRow?.period_end ?? new Date()).toLocaleDateString("en-US", {
+        weekday: "long", month: "long", day: "numeric",
+      });
+      const appUrl = config.app.url;
+      const replyToAddress = `reply+${digestId}@${config.postmark.replyDomain}`;
+
+      return renderEmail(
+        React.createElement(DigestEmail, {
+          digestId,
+          subject: digestRow?.subject ?? "Your Brief",
+          periodLabel,
+          clusters: clustersForEmail,
+          userEmail,
+          replyToAddress,
+          unsubscribeUrl: `${appUrl}/app/preferences`,
+          preferencesUrl: `${appUrl}/app/preferences`,
+          appUrl,
+          listenUrl: `${appUrl}/app/audio-briefs/${digestId}`,
+        })
+      );
+    });
+
+    // ── Step 9: Send via Postmark ─────────────────────────────────────────
+    const { messageId } = await step.run("send-email", async () => {
+      const { data: digestRow } = await createServiceClient()
+        .from("digests")
+        .select("subject")
+        .eq("id", digestId)
+        .single();
+
+      return sendEmail({
+        to: userEmail,
+        subject: digestRow?.subject ?? "Your Brief",
+        htmlBody: html,
+        textBody: text,
+        replyTo: `reply+${digestId}@${config.postmark.replyDomain}`,
+      });
+    });
+
+    // ── Step 10: Mark sent ────────────────────────────────────────────────
+    await step.run("mark-sent", async () => {
+      const supabase = createServiceClient();
+      const now = new Date().toISOString();
+      await supabase
+        .from("digests")
+        .update({
+          status: "sent",
+          sent_at: now,
+          finished_at: now,
+          postmark_message_id: messageId,
+          html_body: html,
+        })
+        .eq("id", digestId);
     });
 
     // Record success in job_logs so the admin panel shows completed runs,
@@ -270,9 +422,10 @@ export const digestGenerate = inngest.createFunction(
         trigger,
         tokens_in:  clusterResult.tokensIn  + synthResult.tokensIn,
         tokens_out: clusterResult.tokensOut + synthResult.tokensOut,
+        postmark_message_id: messageId,
       },
     });
 
-    return { status: "ok", digest_id: digestId, cluster_count: activeClusterIds.length };
+    return { status: "sent", digest_id: digestId, cluster_count: activeClusterIds.length, messageId };
   }
 );
