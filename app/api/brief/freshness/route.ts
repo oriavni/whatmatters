@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { getFreshnessForUser } from "@/lib/brief/getCurrentBrief";
 
-export interface FreshnessResponse {
-  /** Items created after the last digest (or all items if no digest yet) */
-  newCount: number;
-  /** ISO timestamp of the most recent digest, or null */
-  lastDigestAt: string | null;
-}
+export type { FreshnessResult as FreshnessResponse } from "@/lib/brief/getCurrentBrief";
 
-/** GET /api/brief/freshness — lightweight check: how many new items exist since last digest */
+/** GET /api/brief/freshness — lightweight: how many new items since last digest.
+ *
+ * Still used by BriefContainer for:
+ *   - polling freshness while in first-time user "processing" state
+ *   - refreshing new-item count after a digest lands
+ */
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -17,34 +17,11 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const service = createServiceClient();
-
-  // Find the latest digest that actually completed (ready or sent)
-  const { data: lastDigest } = await service
-    .from("digests")
-    .select("created_at")
-    .eq("user_id", user.id)
-    .in("status", ["ready", "sent"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const lastDigestAt = lastDigest?.created_at ?? null;
-
-  // Count raw items created after the last digest (or all items if first time)
-  let query = service
-    .from("raw_items")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-
-  if (lastDigestAt) {
-    query = query.gt("created_at", lastDigestAt);
+  try {
+    const result = await getFreshnessForUser(user.id);
+    return NextResponse.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { count } = await query;
-
-  return NextResponse.json({
-    newCount: count ?? 0,
-    lastDigestAt,
-  } satisfies FreshnessResponse);
 }

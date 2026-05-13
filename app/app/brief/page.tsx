@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { config } from "@/lib/config";
 import { BriefContainer } from "@/components/brief/BriefContainer";
+import {
+  getCurrentBriefForUser,
+  getInteractionsForDigest,
+  getFreshnessForUser,
+} from "@/lib/brief/getCurrentBrief";
 
 export const metadata: Metadata = { title: "Brief" };
 
@@ -15,23 +20,35 @@ export default async function BriefPage() {
   const supabase = await createClient();
   const service = createServiceClient();
 
-  const [profileResult, sourcesResult, subResult] = await Promise.all([
-    supabase
-      .from("users")
-      .select("inbound_slug, is_premium_override")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("sources")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("status", "active"),
-    service
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-  ]);
+  // Fetch everything in parallel — profile, sources, subscription, digest,
+  // and freshness all resolve in one round trip to the DB.
+  const [profileResult, sourcesResult, subResult, briefResult, freshness] =
+    await Promise.all([
+      supabase
+        .from("users")
+        .select("inbound_slug, is_premium_override")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("sources")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "active"),
+      service
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      getCurrentBriefForUser(user.id, service).catch(() => null),
+      getFreshnessForUser(user.id, service).catch(() => null),
+    ]);
+
+  // If a digest exists, also load interactions server-side (runs after above)
+  const clusterIds = briefResult?.digest?.clusters.map((c) => c.id) ?? [];
+  const initialInteractions =
+    clusterIds.length > 0
+      ? await getInteractionsForDigest(user.id, clusterIds, service).catch(() => null)
+      : null;
 
   const inboundAddress = profileResult.data?.inbound_slug
     ? `${profileResult.data.inbound_slug}@${config.postmark.inboundDomain}`
@@ -47,6 +64,10 @@ export default async function BriefPage() {
       inboundAddress={inboundAddress}
       hasSourcesInitial={hasSourcesInitial}
       isPremiumInitial={isPremiumInitial}
+      initialDigest={briefResult?.digest ?? null}
+      initialGenerationStatus={briefResult?.generationStatus ?? "idle"}
+      initialFreshness={freshness}
+      initialInteractions={initialInteractions}
     />
   );
 }
