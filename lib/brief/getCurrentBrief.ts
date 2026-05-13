@@ -32,7 +32,6 @@ export async function getCurrentBriefForUser(
   service?: SupabaseClient
 ): Promise<CurrentBriefResult> {
   const db = service ?? createServiceClient();
-  const t0 = Date.now();
 
   // Grab the latest digest row to surface generating/failed states too
   const { data: latestAny, error } = await db
@@ -145,7 +144,6 @@ export async function getCurrentBriefForUser(
     };
   });
 
-  console.log(`[getCurrentBriefForUser] total=${Date.now()-t0}ms clusters=${clusters.length}`);
   return {
     digest: buildDigest(latestAny, clusters),
     generationStatus: "idle",

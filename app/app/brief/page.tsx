@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/get-user";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { config } from "@/lib/config";
 import { BriefContainer } from "@/components/brief/BriefContainer";
-import {
-  getCurrentBriefForUser,
-  getFreshnessForUser,
-} from "@/lib/brief/getCurrentBrief";
+import { getCurrentBriefForUser } from "@/lib/brief/getCurrentBrief";
 
 export const metadata: Metadata = { title: "Brief" };
 
@@ -16,20 +12,23 @@ export default async function BriefPage() {
   const user = await getUser();
   if (!user) redirect("/login");
 
-  const supabase = await createClient();
+  // We only need the user-auth client for getUser() above.
+  // All data queries below use the service client — we already have a verified
+  // user.id, so we don't need RLS, and the service client is significantly faster
+  // (avoids per-request JWT re-verification overhead).
   const service = createServiceClient();
-  const pageT0 = Date.now();
 
-  // Fetch everything in parallel — profile, sources, subscription, digest,
-  // and freshness all resolve in one round trip to the DB.
-  const [profileResult, sourcesResult, subResult, briefResult, freshness] =
+  // Fetch everything in parallel — profile, sources, subscription, and digest.
+  // Freshness (raw_items COUNT) is deferred to the client — it only drives the
+  // "new items" badge on the Read Now button and is fine to arrive after paint.
+  const [profileResult, sourcesResult, subResult, briefResult] =
     await Promise.all([
-      supabase
+      service
         .from("users")
         .select("inbound_slug, is_premium_override")
         .eq("id", user.id)
         .single(),
-      supabase
+      service
         .from("sources")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
@@ -40,10 +39,7 @@ export default async function BriefPage() {
         .eq("user_id", user.id)
         .maybeSingle(),
       getCurrentBriefForUser(user.id, service).catch(() => null),
-      getFreshnessForUser(user.id, service).catch(() => null),
     ]);
-
-  console.log(`[BriefPage] parallel batch done in ${Date.now()-pageT0}ms`);
   // Interactions (liked/saved/ignore state) are deferred to the client so they
   // don't add a sequential round-trip to the SSR critical path. BriefContainer
   // fetches them after first paint — no skeleton, minimal layout shift.
@@ -63,7 +59,7 @@ export default async function BriefPage() {
       isPremiumInitial={isPremiumInitial}
       initialDigest={briefResult?.digest ?? null}
       initialGenerationStatus={briefResult?.generationStatus ?? "idle"}
-      initialFreshness={freshness}
+      initialFreshness={null}
       initialInteractions={null}
     />
   );

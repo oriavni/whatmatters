@@ -116,10 +116,15 @@ export function BriefContainer({
   const [hasSources, setHasSources] = useState(hasSourcesInitial);
   const [isFirstTimeGenerating, setIsFirstTimeGenerating] = useState(false);
 
+  // Freshness is always null on SSR (deferred to client). Start with 0/null so
+  // the UI renders correctly before the client fetch resolves.
   const [newCount, setNewCount] = useState<number | null>(
     initialFreshness?.newCount ?? (hasSSRData ? 0 : null)
   );
   const [lastDigestAt, setLastDigestAt] = useState<string | null | undefined>(
+    // If SSR provided a digest, user is not first-time regardless of freshness.
+    // If no digest, null means "first-time user" which is the safe default until
+    // the client-side freshness fetch corrects it.
     hasSSRData ? (initialFreshness?.lastDigestAt ?? null) : undefined
   );
 
@@ -247,6 +252,19 @@ export function BriefContainer({
   useEffect(() => {
     if (!hasSSRData || !initialDigest || initialInteractions !== null) return;
     fetchInteractionsForDigest(initialDigest).then(setInteractions);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs once on mount
+
+  // Freshness is always fetched client-side after first paint — the COUNT query
+  // is too slow (~7s) to include in the SSR critical path.
+  useEffect(() => {
+    if (!hasSSRData) return; // non-SSR path fetches freshness in the initial load effect
+    fetchFreshness().then((result) => {
+      if (result) {
+        setNewCount(result.newCount);
+        setLastDigestAt(result.lastDigestAt);
+      }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount
 
