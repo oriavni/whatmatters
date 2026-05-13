@@ -18,6 +18,7 @@ export default async function BriefPage() {
 
   const supabase = await createClient();
   const service = createServiceClient();
+  const pageT0 = Date.now();
 
   // Fetch everything in parallel — profile, sources, subscription, digest,
   // and freshness all resolve in one round trip to the DB.
@@ -42,6 +43,7 @@ export default async function BriefPage() {
       getFreshnessForUser(user.id, service).catch(() => null),
     ]);
 
+  console.log(`[BriefPage] parallel batch done in ${Date.now()-pageT0}ms`);
   // Interactions (liked/saved/ignore state) are deferred to the client so they
   // don't add a sequential round-trip to the SSR critical path. BriefContainer
   // fetches them after first paint — no skeleton, minimal layout shift.
