@@ -111,6 +111,25 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Demo Video */}
+      <section className="py-20 border-t space-y-8">
+        <p className="text-xs font-medium text-center text-muted-foreground tracking-widest uppercase">
+          See it in action
+        </p>
+        <div className="rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+          <div className="aspect-video">
+            <iframe
+              src="https://player.vimeo.com/video/1190277988?h=faa34e9141&badge=0&title=0&byline=0&portrait=0&autopause=0"
+              className="w-full h-full"
+              allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+              allowFullScreen
+              title="upto — see it in action"
+              style={{ border: "none" }}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="py-20 border-t space-y-10">
         <div className="text-center space-y-2">
