@@ -8,6 +8,7 @@ import { BriefEmptyState } from "./BriefEmptyState";
 import { ReadNowButton } from "./ReadNowButton";
 import { StoryBlock } from "./StoryBlock";
 import { QuickMentions } from "./QuickMentions";
+import { TopicDiscovery } from "@/components/discover/TopicDiscovery";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GenerateAudioButton } from "@/components/audio/GenerateAudioButton";
@@ -441,6 +442,7 @@ export function BriefContainer({
             onSourceAdded={() => setHasSources(true)}
           />
         )}
+        <TopicDiscovery clusters={[]} onSourcesAdded={() => setHasSources(true)} />
       </div>
     );
   }
@@ -484,6 +486,11 @@ export function BriefContainer({
           <QuickMentions clusters={shortMentions} />
         </div>
       )}
+
+      <TopicDiscovery
+        clusters={digest.clusters}
+        onSourcesAdded={() => setHasSources(true)}
+      />
     </div>
   );
 }

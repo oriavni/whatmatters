@@ -64,7 +64,7 @@ export async function getCurrentBriefForUser(
   // New digests (post-migration) have the full payload pre-assembled at
   // generation time. Parse and return directly — no further DB queries needed.
   if (latestAny.compiled_json) {
-    const compiled = latestAny.compiled_json as CompiledDigestJson;
+    const compiled = latestAny.compiled_json as unknown as CompiledDigestJson;
     // Recompute periodLabel at read time so locale/timezone stays consistent
     // with the server rendering environment (compiled_json stores it too, but
     // we recalculate to be safe).
