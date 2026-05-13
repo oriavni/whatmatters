@@ -7,7 +7,6 @@ import { config } from "@/lib/config";
 import { BriefContainer } from "@/components/brief/BriefContainer";
 import {
   getCurrentBriefForUser,
-  getInteractionsForDigest,
   getFreshnessForUser,
 } from "@/lib/brief/getCurrentBrief";
 
@@ -43,13 +42,9 @@ export default async function BriefPage() {
       getFreshnessForUser(user.id, service).catch(() => null),
     ]);
 
-  // If a digest exists, also load interactions server-side (runs after above)
-  const clusterIds = briefResult?.digest?.clusters.map((c) => c.id) ?? [];
-  const initialInteractions =
-    clusterIds.length > 0
-      ? await getInteractionsForDigest(user.id, clusterIds, service).catch(() => null)
-      : null;
-
+  // Interactions (liked/saved/ignore state) are deferred to the client so they
+  // don't add a sequential round-trip to the SSR critical path. BriefContainer
+  // fetches them after first paint — no skeleton, minimal layout shift.
   const inboundAddress = profileResult.data?.inbound_slug
     ? `${profileResult.data.inbound_slug}@${config.postmark.inboundDomain}`
     : `${user.id.replace(/-/g, "").slice(0, 16)}@${config.postmark.inboundDomain}`;
@@ -67,7 +62,7 @@ export default async function BriefPage() {
       initialDigest={briefResult?.digest ?? null}
       initialGenerationStatus={briefResult?.generationStatus ?? "idle"}
       initialFreshness={freshness}
-      initialInteractions={initialInteractions}
+      initialInteractions={null}
     />
   );
 }

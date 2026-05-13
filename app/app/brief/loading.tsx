@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BriefLoading() {
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto pb-12">
       {/* Action row */}
       <div className="flex items-center justify-between">
         <Skeleton className="h-7 w-28" />

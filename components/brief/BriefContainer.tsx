@@ -242,6 +242,14 @@ export function BriefContainer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount
 
+  // Fetch interactions client-side after first paint when SSR didn't provide them
+  // (deferred from critical path so they don't delay page render).
+  useEffect(() => {
+    if (!hasSSRData || !initialDigest || initialInteractions !== null) return;
+    fetchInteractionsForDigest(initialDigest).then(setInteractions);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs once on mount
+
   // ── Poll freshness while in first-time "processing" state ────────────────────
   useEffect(() => {
     const shouldPoll =
