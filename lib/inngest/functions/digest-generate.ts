@@ -30,6 +30,7 @@ import { renderEmail } from "@/lib/email/render";
 import { sendEmail } from "@/lib/email/postmark";
 import { DigestEmail, type DigestClusterForEmail } from "@/lib/email/templates/digest";
 import { selectFullBlockIds } from "@/lib/digest/tier";
+import { buildCompiledDigest } from "@/lib/digest/buildCompiledDigest";
 import { config } from "@/lib/config";
 
 interface DigestGenerateEvent {
@@ -262,6 +263,19 @@ export const digestGenerate = inngest.createFunction(
           llm_tokens_input: clusterResult.tokensIn + synthResult.tokensIn,
           llm_tokens_output: clusterResult.tokensOut + synthResult.tokensOut,
         } as Record<string, unknown>)
+        .eq("id", digestId);
+    });
+
+    // ── Step 6.6: Compile and cache the Brief payload ────────────────────
+    // Assembles clusters + sources into the render-ready BriefDigest shape and
+    // stores it in digests.compiled_json. Future page loads return this blob in
+    // a single query instead of 4 chained round-trips.
+    await step.run("compile-brief-json", async () => {
+      const supabase = createServiceClient();
+      const compiled = await buildCompiledDigest(digestId, supabase);
+      await supabase
+        .from("digests")
+        .update({ compiled_json: compiled } as Record<string, unknown>)
         .eq("id", digestId);
     });
 

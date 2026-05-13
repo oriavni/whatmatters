@@ -10,6 +10,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import { selectFullBlockIds } from "@/lib/digest/tier";
 import type { BriefCluster, BriefDigest } from "@/components/brief/types";
+import type { CompiledDigestJson } from "@/lib/digest/buildCompiledDigest";
 
 export type GenerationStatus = "idle" | "generating" | "failed";
 
@@ -33,10 +34,11 @@ export async function getCurrentBriefForUser(
 ): Promise<CurrentBriefResult> {
   const db = service ?? createServiceClient();
 
-  // Grab the latest digest row to surface generating/failed states too
+  // Single query — includes compiled_json for the fast path.
+  // For pending/generating/failed digests compiled_json will be null, which is fine.
   const { data: latestAny, error } = await db
     .from("digests")
-    .select("id, subject, period_end, status, sent_at")
+    .select("id, subject, period_end, status, sent_at, compiled_json")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -58,6 +60,38 @@ export async function getCurrentBriefForUser(
     return { digest: null, generationStatus };
   }
 
+  // ── Fast path: compiled_json present ─────────────────────────────────────
+  // New digests (post-migration) have the full payload pre-assembled at
+  // generation time. Parse and return directly — no further DB queries needed.
+  if (latestAny.compiled_json) {
+    const compiled = latestAny.compiled_json as CompiledDigestJson;
+    // Recompute periodLabel at read time so locale/timezone stays consistent
+    // with the server rendering environment (compiled_json stores it too, but
+    // we recalculate to be safe).
+    const periodLabel = new Date(latestAny.period_end).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    return {
+      digest: {
+        ...compiled,
+        // Ensure live values from the digest row take precedence over the
+        // snapshot stored at generation time (status may have changed to "sent").
+        id: latestAny.id,
+        subject: latestAny.subject,
+        status: latestAny.status as "ready" | "sent",
+        sentAt: latestAny.sent_at,
+        periodLabel,
+      },
+      generationStatus: "idle",
+    };
+  }
+
+  // ── Fallback: no compiled_json (pre-migration digests) ───────────────────
+  // TODO: consider a background backfill job to populate compiled_json for
+  // existing digests so this path is never hit in steady state.
+
   // Load clusters
   const { data: clusterRows, error: clustersError } = await db
     .from("topic_clusters")
@@ -73,7 +107,8 @@ export async function getCurrentBriefForUser(
     };
   }
 
-  // Load items + sources in parallel
+  // Items must be fetched before sources (we need item.source_id to know which
+  // sources to load). Two sequential round-trips is unavoidable here.
   const allItemIds = clusterRows.flatMap((c) => c.raw_item_ids as string[]);
 
   const { data: items } = await db
@@ -85,13 +120,13 @@ export async function getCurrentBriefForUser(
     ...new Set((items ?? []).map((r) => r.source_id).filter(Boolean)),
   ] as string[];
 
-  const { data: sources } = await db
+  const { data: sourcesData } = await db
     .from("sources")
     .select("id, name, url")
     .in("id", sourceIds);
 
   const sourceById = new Map(
-    (sources ?? []).map((s) => [s.id, { name: s.name as string, url: (s.url as string | null) ?? null }])
+    (sourcesData ?? []).map((s) => [s.id, { name: s.name as string, url: (s.url as string | null) ?? null }])
   );
 
   const itemById = new Map(
