@@ -116,10 +116,10 @@ export default async function LandingPage() {
         <p className="text-xs font-medium text-center text-muted-foreground tracking-widest uppercase">
           See it in action
         </p>
-        <div className="rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+        <div className="w-4/5 mx-auto rounded-2xl overflow-hidden bg-black">
           <div className="aspect-video">
             <iframe
-              src="https://player.vimeo.com/video/1190277988?h=faa34e9141&badge=0&title=0&byline=0&portrait=0&autopause=0"
+              src="https://player.vimeo.com/video/1190277988?h=faa34e9141&badge=0&title=0&byline=0&portrait=0&autopause=0&autoplay=1&muted=1&loop=1"
               className="w-full h-full"
               allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
               allowFullScreen
