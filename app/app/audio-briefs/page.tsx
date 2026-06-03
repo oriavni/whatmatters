@@ -8,9 +8,8 @@ import type { Metadata } from "next";
 import { getUser } from "@/lib/supabase/get-user";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isAudioPremium, AUDIO_MONTHLY_CAP, getMonthlyAudioCount } from "@/lib/audio/premium";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Headphones, Lock } from "lucide-react";
+import { UpgradeButton } from "@/components/billing/UpgradeButton";
 import { AudioBriefsList } from "@/components/audio/AudioBriefsList";
 import type { DigestItem, AudioRow } from "@/components/audio/AudioBriefsList";
 
@@ -35,9 +34,9 @@ export default async function AudioBriefsPage() {
           Listen to an audio version of every digest — narrated and ready in seconds.
           Available on the Pro plan.
         </p>
-        <Button asChild className="mt-4">
-          <Link href="/pricing">Upgrade to Pro</Link>
-        </Button>
+        <UpgradeButton plan="pro" className="mt-4">
+          Upgrade to Pro
+        </UpgradeButton>
       </div>
     );
   }

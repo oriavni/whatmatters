@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getPricingConfig } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
+import { UpgradeButton } from "@/components/billing/UpgradeButton";
 import { isAudioPremium } from "@/lib/audio/premium";
 import { PricingCard } from "@/components/marketing/PricingCard";
 
@@ -125,9 +126,16 @@ export default async function PricingPage() {
                   <Button variant="outline" className="w-full" disabled>
                     Current plan
                   </Button>
+                ) : isLoggedIn ? (
+                  <UpgradeButton
+                    plan="pro"
+                    className="w-full bg-foreground text-background hover:bg-foreground/90"
+                  >
+                    Upgrade to {pricing.pro_label}
+                  </UpgradeButton>
                 ) : (
                   <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
-                    <Link href={isLoggedIn ? "/app/account#billing" : "/signup?plan=pro"}>
+                    <Link href="/signup?plan=pro">
                       Upgrade to {pricing.pro_label}
                     </Link>
                   </Button>

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/get-user";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Separator } from "@/components/ui/separator";
-import { buttonVariants } from "@/lib/button-variants";
 import { Badge } from "@/components/ui/badge";
 import { CopyAddressButton } from "@/components/account/CopyAddressButton";
 import { DeleteAccountButton } from "@/components/account/DeleteAccountButton";
+import { UpgradeButton } from "@/components/billing/UpgradeButton";
+import { ManageBillingButton } from "@/components/billing/ManageBillingButton";
 import { config } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Account" };
@@ -22,9 +22,9 @@ export default async function AccountPage() {
     supabase.from("users").select("inbound_slug").eq("id", user.id).single(),
     supabase
       .from("subscriptions")
-      .select("plan")
+      .select("plan, status")
       .eq("user_id", user.id)
-      .single(),
+      .maybeSingle(),
   ]);
 
   const inboundAddress = profile?.inbound_slug
@@ -32,6 +32,7 @@ export default async function AccountPage() {
     : `${user.id.replace(/-/g, "").slice(0, 16)}@${config.postmark.inboundDomain}`;
 
   const plan = subscription?.plan ?? "free";
+  const isActivePaidPlan = plan !== "free" && subscription?.status === "active";
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -56,14 +57,34 @@ export default async function AccountPage() {
           </Badge>
           <span className="text-sm text-muted-foreground">
             {plan === "free"
-              ? "Up to 5 sources · Daily digests"
+              ? "Free trial · limited features"
+              : plan === "premium"
+              ? "Unlimited sources · Audio Briefs · All features"
               : "Unlimited sources · All features"}
           </span>
         </div>
         {plan === "free" && (
-          <Link href="/pricing" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Upgrade to Pro
-          </Link>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <UpgradeButton plan="pro" variant="outline" size="sm">
+              Upgrade to Pro — $4.99/mo
+            </UpgradeButton>
+            <UpgradeButton plan="premium" size="sm">
+              Upgrade to Premium — $8.99/mo
+            </UpgradeButton>
+          </div>
+        )}
+        {plan === "pro" && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <UpgradeButton plan="premium" size="sm">
+              Upgrade to Premium — $8.99/mo
+            </UpgradeButton>
+            {isActivePaidPlan && (
+              <ManageBillingButton variant="outline" size="sm" />
+            )}
+          </div>
+        )}
+        {plan === "premium" && isActivePaidPlan && (
+          <ManageBillingButton variant="outline" size="sm" />
         )}
       </section>
 
