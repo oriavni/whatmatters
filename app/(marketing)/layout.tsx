@@ -47,7 +47,7 @@ export default function MarketingLayout({
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>© {new Date().getFullYear()} upto. All rights reserved.</p>
           <nav className="flex items-center gap-5">
-            <a href="mailto:upto.mgmt@gmail.com" className="hover:text-foreground transition-colors">
+            <a href="mailto:support@getupto.io" className="hover:text-foreground transition-colors">
               Support
             </a>
             <Link href="/privacy" className="hover:text-foreground transition-colors">

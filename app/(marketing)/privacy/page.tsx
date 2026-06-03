@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Privacy Policy — upto." };
 
 const LAST_UPDATED = "June 3, 2025";
-const CONTACT_EMAIL = "upto.mgmt@gmail.com";
+const CONTACT_EMAIL = "support@getupto.io";
 const APP_URL = "https://www.getupto.io";
 
 export default function PrivacyPage() {
