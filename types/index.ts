@@ -2,7 +2,7 @@
 // Core domain types — mirrors the DB schema
 // ─────────────────────────────────────────────────────────
 
-export type Plan = "free" | "pro" | "team";
+export type Plan = "free" | "pro" | "premium";
 export type DigestFrequency = "daily" | "weekly" | "monthly";
 export type DigestDensity = "compact" | "balanced" | "detailed";
 export type SourceType = "email" | "rss";

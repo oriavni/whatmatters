@@ -599,6 +599,8 @@ export type Database = {
         Row: {
           cancel_at_period_end: boolean
           created_at: string
+          creem_customer_id: string | null
+          creem_subscription_id: string | null
           current_period_end: string | null
           current_period_start: string | null
           id: string
@@ -613,6 +615,8 @@ export type Database = {
         Insert: {
           cancel_at_period_end?: boolean
           created_at?: string
+          creem_customer_id?: string | null
+          creem_subscription_id?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
@@ -627,6 +631,8 @@ export type Database = {
         Update: {
           cancel_at_period_end?: boolean
           created_at?: string
+          creem_customer_id?: string | null
+          creem_subscription_id?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
@@ -894,7 +900,7 @@ export type Database = {
       reply_action_type: "expand" | "save" | "skip" | "share" | "unsubscribe"
       source_status: "active" | "paused" | "error"
       source_type: "rss" | "newsletter" | "manual"
-      subscription_plan: "free" | "pro"
+      subscription_plan: "free" | "pro" | "premium"
       subscription_status:
         | "trialing"
         | "active"
@@ -1034,7 +1040,7 @@ export const Constants = {
       reply_action_type: ["expand", "save", "skip", "share", "unsubscribe"],
       source_status: ["active", "paused", "error"],
       source_type: ["rss", "newsletter", "manual"],
-      subscription_plan: ["free", "pro"],
+      subscription_plan: ["free", "pro", "premium"],
       subscription_status: [
         "trialing",
         "active",

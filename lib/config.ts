@@ -109,6 +109,35 @@ export const config = {
     },
   },
 
+  // ─── Creem (server-only) ──────────────────────────────────────────────
+  creem: {
+    get apiKey(): string {
+      return required("CREEM_API_KEY");
+    },
+    get webhookSecret(): string {
+      return required("CREEM_WEBHOOK_SECRET");
+    },
+    /** Set CREEM_TEST_MODE=true in .env.local to use test-api.creem.io */
+    get testMode(): boolean {
+      return process.env.CREEM_TEST_MODE === "true";
+    },
+    get apiBase(): string {
+      return process.env.CREEM_TEST_MODE === "true"
+        ? "https://test-api.creem.io/v1"
+        : "https://api.creem.io/v1";
+    },
+    products: {
+      /** Product ID for the $4.99/month Pro plan */
+      get proId(): string {
+        return optional("CREEM_PRO_PRODUCT_ID", "");
+      },
+      /** Product ID for the $8.99/month Premium plan */
+      get premiumId(): string {
+        return optional("CREEM_PREMIUM_PRODUCT_ID", "");
+      },
+    },
+  },
+
   // ─── Postmark (server-only) ────────────────────────────────────────────
   postmark: {
     get serverToken(): string {
