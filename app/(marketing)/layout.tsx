@@ -43,8 +43,21 @@ export default function MarketingLayout({
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} getupto.io. All rights reserved.</p>
+      <footer className="border-t py-8 text-sm text-muted-foreground">
+        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p>© {new Date().getFullYear()} upto. All rights reserved.</p>
+          <nav className="flex items-center gap-5">
+            <a href="mailto:upto.mgmt@gmail.com" className="hover:text-foreground transition-colors">
+              Support
+            </a>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">
+              Terms
+            </Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );
