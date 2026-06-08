@@ -36,12 +36,10 @@ import {
   type InternalPlan,
 } from "@/lib/billing/subscription";
 
-// ─── Route config ─────────────────────────────────────────────────────────────
-
-// Must read raw body for signature verification — disable body parsing
-export const config = { api: { bodyParser: false } };
-
 // ─── Handler ──────────────────────────────────────────────────────────────────
+// Note: App Router route handlers always expose the raw, unparsed request —
+// there's no body-parser to disable (that's a Pages Router `config` concept).
+// `request.text()` below already gives us the raw body for HMAC verification.
 
 export async function POST(request: NextRequest) {
   // 1. Read raw body (required for HMAC verification)

@@ -5,6 +5,7 @@ import { ForceGenerateButton } from "@/components/admin/ForceGenerateButton";
 import { PlanSelect } from "@/components/admin/PlanSelect";
 import { PricingForm } from "@/components/admin/PricingForm";
 import { FlagsPanel } from "@/components/admin/FlagsPanel";
+import { CouponsPanel } from "@/components/admin/CouponsPanel";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -16,6 +17,7 @@ const TABS = [
   { key: "replies",   label: "Replies" },
   { key: "audio",     label: "Audio Briefs" },
   { key: "pricing",   label: "Pricing" },
+  { key: "coupons",   label: "Coupons" },
   { key: "flags",     label: "Flags" },
 ] as const;
 
@@ -246,6 +248,22 @@ export default async function AdminPage(props: {
   if (tab === "pricing") {
     const { data } = await supabase.from("pricing_config").select("*").eq("id", "default").single();
     pricing = data as Record<string, unknown> | null;
+  }
+
+  // ── Coupons tab ─────────────────────────────────────────────────────────────
+  let coupons: Array<{
+    id: string; code: string; plan_granted: "free" | "pro" | "premium";
+    access_type: "discount" | "free"; discount_percent: number | null;
+    max_redemptions: number | null; redemptions_count: number;
+    expires_at: string | null; is_active: boolean; note: string | null;
+    created_at: string;
+  }> = [];
+  if (tab === "coupons") {
+    const { data } = await supabase
+      .from("coupon_codes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    coupons = (data ?? []) as unknown as typeof coupons;
   }
 
   // ── Flags tab ───────────────────────────────────────────────────────────────
@@ -627,6 +645,21 @@ export default async function AdminPage(props: {
                 <p className="text-sm text-muted-foreground">Run the migration to enable pricing config.</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Coupons ───────────────────────────────────────────────────────── */}
+        {tab === "coupons" && (
+          <div className="space-y-3 max-w-3xl">
+            <div>
+              <h2 className="text-sm font-medium">Coupons & free testers</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                &ldquo;Free access&rdquo; codes grant a plan directly with no payment (for testers/friends).
+                &ldquo;Discount&rdquo; codes hand back a percentage for the user to apply at checkout.
+                Redemptions are capped, expirable, and one-per-user — enforced server-side.
+              </p>
+            </div>
+            <CouponsPanel initialCoupons={coupons} />
           </div>
         )}
 

@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { getPricingConfig } from "@/lib/pricing";
 import { PricingCard } from "@/components/marketing/PricingCard";
 
 export const dynamic = "force-dynamic"; // pricing data must always be fresh
@@ -33,28 +32,26 @@ const steps = [
   },
 ];
 
-const FREE_FEATURES = [
-  "Your own inbound email address",
-  "Unlimited newsletter sources",
-  "Daily or weekly digest, on your schedule",
-  "Reply to teach — ignore, save, or get more on any topic",
-  "No ads, no tracking",
+const PRO_FEATURES = [
+  "Unlimited newsletters",
+  "Unlimited RSS sources",
+  "Daily or weekly briefs",
+  "AI deduplication",
+  "Reply commands",
+  "Archive access",
 ];
 
+const PREMIUM_FEATURES = [
+  "Everything in Pro",
+  "Audio Briefs",
+  "Advanced digest controls",
+  "Priority access to new features",
+  "Future premium AI capabilities",
+];
+
+const TRIAL_NOTE = "3-day free trial. Card required. Cancel anytime.";
+
 export default async function LandingPage() {
-  const pricing = await getPricingConfig();
-
-  const displayPrice = pricing.deal_active
-    ? pricing.deal_price_monthly
-    : pricing.price_monthly;
-
-  const proFeatures = [
-    "Everything in the base plan",
-    pricing.pro_description,
-    `${pricing.pro_audio_limit} Audio Briefs per month`,
-    "Priority support",
-  ];
-
   return (
     <div className="max-w-4xl mx-auto px-6">
       {/* Hero */}
@@ -135,79 +132,41 @@ export default async function LandingPage() {
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-semibold">Simple pricing</h2>
           <p className="text-muted-foreground text-sm">
-            {pricing.pro_visible
-              ? "Two plans. No hidden fees. Start free, no card required."
-              : `${pricing.trial_days}-day free trial. No credit card required.`}
+            Two plans. No hidden fees. {TRIAL_NOTE}
           </p>
         </div>
 
-        {pricing.pro_visible ? (
-          /* ── Two-column: Free + Pro ── */
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
-            <PricingCard
-              planName="Free"
-              price={`$${displayPrice}`}
-              period="/month"
-              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
-              badge={pricing.deal_active ? pricing.deal_label : undefined}
-              strikeThroughPrice={
-                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
-              }
-              features={FREE_FEATURES}
-              cta={
-                <Button asChild className="w-full">
-                  <Link href="/signup">
-                    Start {pricing.trial_days}-day free trial
-                  </Link>
-                </Button>
-              }
-              finePrint="No credit card required."
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <PricingCard
+            planName="Pro"
+            price="$4.99"
+            period="/month"
+            subtitle={TRIAL_NOTE}
+            strikeThroughPrice="$7.99/month"
+            features={PRO_FEATURES}
+            cta={
+              <Button asChild className="w-full">
+                <Link href="/signup?plan=pro">Start with Pro</Link>
+              </Button>
+            }
+          />
 
-            <PricingCard
-              planName={pricing.pro_label}
-              price={`$${pricing.pro_price_monthly}`}
-              period="/month"
-              subtitle="Includes everything in the base plan"
-              badge="New"
-              badgeVariant="outline"
-              features={proFeatures}
-              highlighted
-              cta={
-                <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
-                  <Link href="/signup?plan=pro">
-                    Upgrade to {pricing.pro_label}
-                  </Link>
-                </Button>
-              }
-              finePrint="No credit card required to start."
-            />
-          </div>
-        ) : (
-          /* ── Single card (default) ── */
-          <div className="max-w-md mx-auto">
-            <PricingCard
-              planName="upto."
-              price={`$${displayPrice}`}
-              period="/month"
-              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
-              badge={pricing.deal_active ? pricing.deal_label : undefined}
-              strikeThroughPrice={
-                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
-              }
-              features={FREE_FEATURES}
-              cta={
-                <Button asChild size="lg" className="w-full">
-                  <Link href="/signup">
-                    Start {pricing.trial_days}-day free trial
-                  </Link>
-                </Button>
-              }
-              finePrint="No credit card required to start."
-              large
-            />
-          </div>
-        )}
+          <PricingCard
+            planName="Premium"
+            price="$8.99"
+            period="/month"
+            subtitle={TRIAL_NOTE}
+            badge="Best value"
+            badgeVariant="outline"
+            features={PREMIUM_FEATURES}
+            highlighted
+            cta={
+              <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
+                <Link href="/signup?plan=premium">Start with Premium</Link>
+              </Button>
+            }
+          />
+        </div>
       </section>
 
       {/* CTA */}
@@ -216,7 +175,7 @@ export default async function LandingPage() {
           Your private briefing starts today.
         </h2>
         <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-          Free to start. No credit card required.
+          {TRIAL_NOTE}
         </p>
         <Link href="/signup" className={cn(buttonVariants({ size: "lg" }))}>
           Get started free

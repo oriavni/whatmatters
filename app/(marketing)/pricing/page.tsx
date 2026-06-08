@@ -1,24 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getPricingConfig } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { UpgradeButton } from "@/components/billing/UpgradeButton";
-import { isAudioPremium } from "@/lib/audio/premium";
 import { PricingCard } from "@/components/marketing/PricingCard";
 
 export const metadata: Metadata = { title: "Pricing" };
 export const dynamic = "force-dynamic";
 
-/** Features included in every plan. */
-const FREE_FEATURES = [
-  "Your own inbound address for newsletters",
-  "Unlimited newsletter and RSS sources",
-  "Daily or weekly digest — your schedule",
-  "AI deduplication across all your sources",
-  "Reply commands — ignore, save, get more",
-  "Archive of all past digests",
-  "No ads. No tracking. No noise.",
+const PRO_FEATURES = [
+  "Unlimited newsletters",
+  "Unlimited RSS sources",
+  "Daily or weekly briefs",
+  "AI deduplication",
+  "Reply commands",
+  "Archive access",
+];
+
+const PREMIUM_FEATURES = [
+  "Everything in Pro",
+  "Audio Briefs",
+  "Advanced digest controls",
+  "Priority access to new features",
+  "Future premium AI capabilities",
 ];
 
 const FAQ = [
@@ -37,32 +42,29 @@ const FAQ = [
 ];
 
 export default async function PricingPage() {
-  const pricing = await getPricingConfig();
-
   // Resolve current user's plan state (best-effort — never throws)
-  let isPremium = false;
+  let currentPlan: "free" | "pro" | "premium" = "free";
   let isLoggedIn = false;
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       isLoggedIn = true;
-      isPremium = await isAudioPremium(user.id).catch(() => false);
+      const service = createServiceClient();
+      const { data: subscription } = await service
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (subscription?.status === "active" || subscription?.status === "trialing") {
+        currentPlan = (subscription.plan as "free" | "pro" | "premium") ?? "free";
+      }
     }
   } catch {
     // Unauthenticated or Supabase unavailable — show default CTAs
   }
 
-  const displayPrice = pricing.deal_active
-    ? pricing.deal_price_monthly
-    : pricing.price_monthly;
-
-  const proFeatures = [
-    "Everything in the base plan",
-    pricing.pro_description,
-    `${pricing.pro_audio_limit} Audio Briefs per month`,
-    "Priority support",
-  ];
+  const trialNote = "3-day free trial. Card required. Cancel anytime.";
 
   return (
     <div className="max-w-4xl mx-auto px-6">
@@ -73,109 +75,72 @@ export default async function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="text-muted-foreground text-lg max-w-md mx-auto">
-          {pricing.pro_visible
-            ? "Two plans. No hidden fees. Start free, no card required."
-            : "One plan. Everything included. Start free, no card required."}
+          Two plans. No hidden fees. {trialNote}
         </p>
       </section>
 
       {/* Cards */}
       <section className="flex justify-center pb-20">
-        {pricing.pro_visible ? (
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
 
-            {/* ── Base plan card ── */}
-            <PricingCard
-              planName="Free"
-              price={`$${displayPrice}`}
-              period="/month"
-              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
-              badge={pricing.deal_active ? pricing.deal_label : undefined}
-              strikeThroughPrice={
-                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
-              }
-              features={FREE_FEATURES}
-              cta={
-                isLoggedIn ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    Current plan
-                  </Button>
-                ) : (
-                  <Button asChild className="w-full">
-                    <Link href="/signup">
-                      Start {pricing.trial_days}-day free trial
-                    </Link>
-                  </Button>
-                )
-              }
-              finePrint="No credit card required."
-            />
+          {/* ── Pro card ── */}
+          <PricingCard
+            planName="Pro"
+            price="$4.99"
+            period="/month"
+            subtitle={trialNote}
+            strikeThroughPrice="$7.99/month"
+            features={PRO_FEATURES}
+            cta={
+              currentPlan === "pro" || currentPlan === "premium" ? (
+                <Button variant="outline" className="w-full" disabled>
+                  {currentPlan === "pro" ? "Current plan" : "Included in Premium"}
+                </Button>
+              ) : isLoggedIn ? (
+                <UpgradeButton plan="pro" className="w-full">
+                  Upgrade to Pro
+                </UpgradeButton>
+              ) : (
+                <Button asChild className="w-full">
+                  <Link href="/signup?plan=pro">Start with Pro</Link>
+                </Button>
+              )
+            }
+            finePrint={currentPlan === "pro" ? "You're on Pro." : undefined}
+          />
 
-            {/* ── Pro card ── */}
-            <PricingCard
-              planName={pricing.pro_label}
-              price={`$${pricing.pro_price_monthly}`}
-              period="/month"
-              subtitle="Includes everything in the base plan"
-              badge="New"
-              badgeVariant="outline"
-              features={proFeatures}
-              highlighted
-              cta={
-                isPremium ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    Current plan
-                  </Button>
-                ) : isLoggedIn ? (
-                  <UpgradeButton
-                    plan="pro"
-                    className="w-full bg-foreground text-background hover:bg-foreground/90"
-                  >
-                    Upgrade to {pricing.pro_label}
-                  </UpgradeButton>
-                ) : (
-                  <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
-                    <Link href="/signup?plan=pro">
-                      Upgrade to {pricing.pro_label}
-                    </Link>
-                  </Button>
-                )
-              }
-              finePrint={isPremium ? "You're on Pro." : "No credit card required to start."}
-            />
+          {/* ── Premium card ── */}
+          <PricingCard
+            planName="Premium"
+            price="$8.99"
+            period="/month"
+            subtitle={trialNote}
+            badge="Best value"
+            badgeVariant="outline"
+            features={PREMIUM_FEATURES}
+            highlighted
+            cta={
+              currentPlan === "premium" ? (
+                <Button variant="outline" className="w-full" disabled>
+                  Current plan
+                </Button>
+              ) : isLoggedIn ? (
+                <UpgradeButton
+                  plan="premium"
+                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                >
+                  Upgrade to Premium
+                </UpgradeButton>
+              ) : (
+                <Button asChild className="w-full bg-foreground text-background hover:bg-foreground/90">
+                  <Link href="/signup?plan=premium">Start with Premium</Link>
+                </Button>
+              )
+            }
+            finePrint={currentPlan === "premium" ? "You're on Premium." : undefined}
+          />
 
-          </div>
-        ) : (
-          /* ── Single card layout ── */
-          <div className="w-full max-w-md">
-            <PricingCard
-              planName="upto."
-              price={`$${displayPrice}`}
-              period="/month"
-              subtitle={`${pricing.trial_days}-day free trial · cancel anytime`}
-              badge={pricing.deal_active ? pricing.deal_label : undefined}
-              strikeThroughPrice={
-                pricing.deal_active ? `$${pricing.price_monthly}/month` : undefined
-              }
-              features={FREE_FEATURES}
-              cta={
-                isLoggedIn ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    Current plan
-                  </Button>
-                ) : (
-                  <Button asChild size="lg" className="w-full">
-                    <Link href="/signup">
-                      Start {pricing.trial_days}-day free trial
-                    </Link>
-                  </Button>
-                )
-              }
-              finePrint="No credit card required to start."
-              large
-            />
-          </div>
-        )}
+        </div>
       </section>
 
       {/* FAQ */}
@@ -194,4 +159,3 @@ export default async function PricingPage() {
     </div>
   );
 }
-
