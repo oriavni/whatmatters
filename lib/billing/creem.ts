@@ -117,7 +117,8 @@ export async function createCreemCheckout(
   if (!res.ok) {
     const text = await res.text().catch(() => "(unreadable)");
     throw new Error(
-      `[creem] Checkout creation failed: ${res.status} ${res.statusText} — ${text}`
+      `[creem] Checkout creation failed: ${res.status} ${res.statusText} — ${text} ` +
+        `(debug: sent product_id="${productId}" to ${config.creem.apiBase}, testMode=${config.creem.testMode})`
     );
   }
 
