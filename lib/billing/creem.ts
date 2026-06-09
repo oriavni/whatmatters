@@ -149,6 +149,12 @@ export function verifyCreemWebhook(
       .update(rawBody)
       .digest("hex");
 
+    // DEBUG: log signature details to diagnose mismatch (remove after fix)
+    console.log("[creem/webhook/debug] received signature:", signature);
+    console.log("[creem/webhook/debug] computed signature:", computed);
+    console.log("[creem/webhook/debug] secret length:", secret.length);
+    console.log("[creem/webhook/debug] match:", computed === signature);
+
     // Both buffers must be the same byte length for timingSafeEqual
     const computedBuf = Buffer.from(computed, "hex");
     const signatureBuf = Buffer.from(signature, "hex");
