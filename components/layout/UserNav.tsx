@@ -23,6 +23,7 @@ import Link from "next/link"
 interface UserNavProps {
   email: string
   isPremium: boolean
+  plan?: string
 }
 
 function getInitials(email: string): string {
@@ -34,9 +35,10 @@ function getInitials(email: string): string {
   return local.slice(0, 2).toUpperCase()
 }
 
-export function UserNav({ email, isPremium }: UserNavProps) {
+export function UserNav({ email, isPremium, plan = "free" }: UserNavProps) {
   const initials = getInitials(email)
   const { isMobile } = useSidebar()
+  const planLabel = plan === "premium" ? "Premium" : plan === "pro" ? "Pro" : "Free plan"
 
   return (
     <SidebarMenu>
@@ -55,7 +57,7 @@ export function UserNav({ email, isPremium }: UserNavProps) {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{email}</span>
                 <span className={`truncate text-xs ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                  {isPremium ? "Pro" : "Free plan"}
+                  {planLabel}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -78,7 +80,7 @@ export function UserNav({ email, isPremium }: UserNavProps) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{email}</span>
                   <span className={`truncate text-xs ${isPremium ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                    {isPremium ? "Pro" : "Free plan"}
+                    {planLabel}
                   </span>
                 </div>
               </div>

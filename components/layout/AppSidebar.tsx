@@ -42,9 +42,10 @@ const navItems = [
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   userEmail: string
   isPremium: boolean
+  plan?: string
 }
 
-export function AppSidebar({ userEmail, isPremium, ...props }: AppSidebarProps) {
+export function AppSidebar({ userEmail, isPremium, plan = "free", ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
 
@@ -111,7 +112,7 @@ export function AppSidebar({ userEmail, isPremium, ...props }: AppSidebarProps) 
       </SidebarContent>
 
       <SidebarFooter>
-        <UserNav email={userEmail} isPremium={isPremium} />
+        <UserNav email={userEmail} isPremium={isPremium} plan={plan} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/get-user";
 import { isAudioPremium } from "@/lib/audio/premium";
+import { createServiceClient } from "@/lib/supabase/service";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppClientLayout } from "@/components/layout/AppClientLayout";
@@ -19,13 +20,19 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  // Fetch premium status for sidebar pricing clarity.
-  // Non-blocking: defaults to false on error so layout never breaks.
-  const isPremium = await isAudioPremium(user.id).catch(() => false);
+  // Fetch premium status + actual plan name for sidebar display.
+  // Non-blocking: defaults on error so layout never breaks.
+  const db = createServiceClient();
+  const [isPremium, subRow] = await Promise.all([
+    isAudioPremium(user.id).catch(() => false),
+    db.from("subscriptions").select("plan").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => data, () => null),
+  ]);
+  const planLabel = (subRow?.plan as string | null) ?? "free";
 
   return (
     <SidebarProvider>
-      <AppSidebar userEmail={user.email ?? ""} isPremium={isPremium} />
+      <AppSidebar userEmail={user.email ?? ""} isPremium={isPremium} plan={planLabel} />
       <SidebarInset>
         <AppHeader />
         <AppClientLayout>
