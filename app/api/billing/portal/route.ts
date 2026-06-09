@@ -33,6 +33,12 @@ export async function POST() {
     return NextResponse.json({ url: `${config.app.url}/pricing` });
   }
 
+  // In test mode, Creem's live portal doesn't work for test customers.
+  // Redirect to the pricing page with a notice instead.
+  if (config.creem.testMode) {
+    return NextResponse.json({ url: `${config.app.url}/pricing?billing=test-mode` });
+  }
+
   // Creem portal URL: https://www.creem.io/portal/<customerId>
   const portalUrl = `https://www.creem.io/portal/${customerId}`;
   return NextResponse.json({ url: portalUrl });

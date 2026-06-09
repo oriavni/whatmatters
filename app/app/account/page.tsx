@@ -83,8 +83,15 @@ export default async function AccountPage() {
             )}
           </div>
         )}
-        {plan === "premium" && isActivePaidPlan && (
-          <ManageBillingButton variant="outline" size="sm" />
+        {plan === "premium" && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {isActivePaidPlan && (
+              <ManageBillingButton variant="outline" size="sm" />
+            )}
+            <UpgradeButton plan="pro" variant="ghost" size="sm">
+              Switch to Pro — $4.99/mo
+            </UpgradeButton>
+          </div>
         )}
       </section>
 
